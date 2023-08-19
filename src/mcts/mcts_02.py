@@ -6,6 +6,7 @@ import json
 from tot.prompts.crosswords import propose_prompt, value_prompt
 from tot.models import gpt
 from tot.tasks.crosswords import MiniCrosswordsEnv
+import MiniCrosswordsEnv as env
 import re
 import copy
 from tot.models import gpt
