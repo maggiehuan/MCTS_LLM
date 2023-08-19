@@ -5,6 +5,12 @@ from tot.tasks.base import Task, DATA_PATH
 from tot.prompts.crosswords import * 
 from tot.models import gpt
 
+ # prompt, get prompt, answered, reward, update value, rollout, computed reward,
+# class ENV:
+
+
+
+
 class MiniCrosswordsEnv:
     def __init__(self, file='mini0505.json'):
         self.file = os.path.join(DATA_PATH, 'crosswords', file)
@@ -21,9 +27,12 @@ class MiniCrosswordsEnv:
     
     def reset(self, idx, board=None, status=None, steps=None):
         self.idx = idx
+        # random.sample(idx)
+        # if class
         self.data, self.board_gt = self.file[idx]
         self.board = ['_'] * 25
         self.ans = ['_____'] * 10
+        breakpoint()
         self.ans_gt = self.get_ans(self.board_gt)
         self.steps = 0
         self.status = [0] * 10  # 0: unfilled; 1: filled; 2: filled then changed
@@ -255,3 +264,8 @@ class MiniCrosswordsTask(Task):
             if res in count: count[res] += 1
         print(count)
         return count
+
+### 测试实例
+if __name__ == '__main__':
+    env = MiniCrosswordsEnv()
+    env.reset(5)

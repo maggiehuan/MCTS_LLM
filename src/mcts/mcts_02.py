@@ -13,7 +13,7 @@ from tot.models import gpt
 
 env = MiniCrosswordsEnv()
 
-openai.api_key = "YOUR_API_KEY"
+openai.api_key = ""
 
 N = 10  # Rollouts
 L = 5   # Depth
@@ -54,7 +54,7 @@ def computed_reward(state):
 
     return torch.rand(1)  
 
-def update_value(state, reward):
+def update_value(state, reward, a_best, Q, N_count):
     Q[(state, a_best)] = (Q[(state, a_best)] * N_count[(state, a_best)] + reward) / (N_count[(state, a_best)] + 1)
     N_count[(state, a_best)] += 1
 
@@ -104,18 +104,20 @@ def PUCT(Q, N, t, c=1.0):
     chosen_action = np.argmax(values)
     return chosen_action
 
+# 调用api时需要GPT一次生成到一句话的结束，判断.的token，然后判断end token，
 def possible_actions(state):
     response = [None] * 3
     for i in range(3):
         response[i] = openai.Completion.create(
-            engine="text-davinci-003",  
+            engine="text-davinci-003",
+            ############################### 控制生成的方式，多个end token，需要去看一下官网 
             prompt=state,
             max_tokens=1
     )
-    # 这里possible action
-    possible_action[] = response.choices[0].text
-    return possible_action[]
 
+    possible_action = [r.text for r in response]
+    return possible_action
+# LLAMA or GPT-4
 
 def main():
     M_theta = GenerativeLLM()  
@@ -125,19 +127,24 @@ def main():
     N = 10  # Number of rollouts
     depth = 3  # Depth of exploration
     depth_limit = 5  # Depth limit
-    
+    T = 5
+     
 # "prompt", reward, finish    env.
 
     for iteration in range(5, 11):  # Training iterations 5-10
         # Data Collection
         training_data = []
+
         for _ in range(T):
             rollouts = []
+            Q = {}
+            N_count = {}
             for _ in range(N):
                 state = initial_state
                 history = []
                 generated_actions = set()
                 
+
                 for n in range(depth_limit):
                     if n < depth:
                         if state in generated_actions:
@@ -163,7 +170,7 @@ def main():
                             Q[state][possible_action] = 0
                             
                         # Select action using PUCT
-                        chosen_action = PUCT(Q[state], N[state], n)
+                        chosen_action = PUCT(Q[state], N_count[state], n)
                             
                         # Expand by applying chosen action
                         next_state = state + chosen_action
@@ -172,35 +179,43 @@ def main():
                         
                         # Backpropagation, reward computation, and value update
                         reward = computed_reward(next_state)
-                        update_value(next_state, reward)
+                        update_value(next_state, reward, chosen_action, Q, N_count)
                         
-                        # Update Q and N
-                        N[state][chosen_action] += 1
-                        Q[state][chosen_action] += reward
-                        
+
                         history.append(state)
                         state = next_state
-                    else:
-                        # best action
-                        best_action = get_best_action(state)
-                        history.append(state)
-                        state += best_action
-                # Finished one rollout
-                a_star = []
-                state = initial_state
-                for n in range(depth_limit):
-                    best_action = get_best_action(state)
-                    a_star.append(best_action)
-                    state += best_action
-                history.append(state)
-                rollouts.append(history)
-            training_data.extend(rollouts)
+                    # else:
+                    #     # best action
+                    #     best_action = get_best_action(state)
+                    #     history.append(state)
+                    #     state += best_action
+
+                # Backpropagation, reward computation, and value update
+                # 需要backpropagate到history中的每一个state
+                reward = computed_reward(next_state)
+                update_value(next_state, reward, chosen_action, Q, N_count)
+                        
+
+            # Finished one rollout
+            a_star = []
+            state = initial_state
+            for n in range(depth_limit):
+                # 判断environment是否finished
+                if env.answered(state):
+                    break
+                best_action = get_best_action(state)
+                a_star.append(best_action)
+                state += best_action
+            # history.append(state)
+            # rollouts.append(history)
+            training_data.append(state)
         
         # Fine-tune LLM
-        optimizer.zero_grad()
-        loss = loss_function() 
-        loss.backward()
-        optimizer.step()
+        def finetune(): 
+            optimizer.zero_grad()
+            loss = loss_function() 
+            loss.backward()
+            optimizer.step()
 
 if __name__ == "__main__":
     main()
