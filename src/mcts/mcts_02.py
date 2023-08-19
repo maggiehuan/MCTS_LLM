@@ -205,3 +205,6 @@ def main():
 if __name__ == "__main__":
     main()
 
+# 1. 生成n个action，封装成一个函数，每个action都需要更新一次searching，
+
+
