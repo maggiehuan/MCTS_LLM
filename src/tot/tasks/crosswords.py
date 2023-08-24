@@ -1,44 +1,224 @@
 import re
 import os
 import json
-from tot.tasks.base import Task, DATA_PATH
-from tot.prompts.crosswords import * 
-from tot.models import gpt
+from src.tot.tasks.base import Task, DATA_PATH
+from src.tot.prompts.crosswords import * 
+from src.tot.models import gpt
+# import openai
+# import torch
+import torch.optim as optim
+import numpy as np
+from src.tot.prompts.crosswords import propose_prompt, value_prompt
+import copy
+from src.tot.models import gpt
 
- # prompt, get prompt, answered, reward, update value, rollout, computed reward,
+
+# prompt, get prompt, answered, reward, update value, rollout, computed reward,
 # class ENV:
 
 
+# ##读取文件 说明和answer的要求
+# ##组合prompt 用说明组合prompt
+# 用answer组合reward
+# 用下面的env组合我们自己的env-> 先看懂每个函数，然后哪些是我们需要的or可以直接用的
+# 没有的需要设计一下
+# pdb调试工具的学习，一些基本功能
+# 实现env，然后把mcts02的部分换成env
+# 完善MCTS file
 
 
-class MiniCrosswordsEnv:
-    def __init__(self, file='mini0505.json'):
-        self.file = os.path.join(DATA_PATH, 'crosswords', file)
+class CrosswordsEnv:
 
-        self.file = json.load(open(self.file))
-        self.n = len(self.file)
-        self.cache = {}
-        self.idx = None
-        self.times = 0
-        self.prompt_status_cache = {}
+    def prompt_wrap(observation):
+            return propose_prompt.format(input=observation) 
+            breakpoint()
 
-    def __len__(self):
-        return self.n
+
+    def parse_line(input_str):
+        # regular expression pattern to match the input string format
+        pattern = r'^([hv][1-5])\. ([a-zA-Z]{5,5}) \((certain|high|medium|low)\).*$'
+
+        # use regex to extract the parts of the input string
+        match = re.match(pattern, input_str)
+
+        if match:
+            # extract the matched groups
+            parts = [match.group(1), match.group(2), match.group(3)]
+            return parts
+        else:
+            return None
+
+    confidence_to_value = {'certain': 1, 'high': 0.5, 'medium': 0.2, 'low': 0.1}  
+
+    def parse_response(response):
+        # split the response into lines
+        lines = response.split('\n')
+
+        # parse each line
+        parsed_lines = [parsed_lines(line) for line in lines]
+
+        # filter out the lines that didn't match the format
+        parsed_lines = [(line[0].lower() + '. ' + line[1].lower(), confidence_to_value.get(line[2], 0)) for line in parsed_lines if line is not None]
+
+        return parsed_lines if len(parsed_lines) >= 1 else None
+
+
+    #def get_candidates_to_scores(env): ## Reward
+    def reward(env):
+        obs = env.render()
+        if obs in env.cache: 
+            print('cache hit')
+            return env.cache[obs]
+        print('call gpt')
+        responses = gpt(prompt_wrap(obs), model='gpt-4', n=8)
+        candidates_to_scores = {}
+        for response in responses:
+            parsed_response = parse_response(response)
+            if parsed_response:
+                for candidate, score in parsed_response:
+                    candidates_to_scores[candidate] = candidates_to_scores.get(candidate, 0) + score
+            # choose candiate with highest score
+        # print(sorted(candidates_to_scores.items(), key=lambda x: x[1], reverse=True))
+        env.cache[obs] = candidates_to_scores
+        return candidates_to_scores
+
+    # def propose_score(env, idx): # computed reward
+    def computed_reward(env, idx):
+        obs = env.reset(idx)
+        done = False
+        infos = []
+        while not done:
+            responses = gpt(prompt_wrap(obs), model='gpt-4', n=5)
+            candidates_to_scores = {}
+            for response in responses:
+                parsed_response = parsed_response(response)
+                if parsed_response:
+                    for candidate, score in parsed_response:
+                        candidates_to_scores[candidate] = candidates_to_scores.get(candidate, 0) + score
+            # choose candiate with highest score
+            print(sorted(candidates_to_scores.items(), key=lambda x: x[1], reverse=True))
+            if len(candidates_to_scores) == 0:
+                break
+            candidates =  sorted(candidates_to_scores, key=candidates_to_scores.get, reverse=True)
+            for candidate in candidates:
+                env_ = copy.deepcopy(env)
+                env_.step(candidate)
+                if not any(_ == 2 for _ in env_.status):
+                    break
+            print(candidate)
+            # candidate = input()
+            obs, r, done, info = env.step(candidate)
+            print(obs)
+            print(env.steps, info)
+            print('-------------------\n\n\n')
+            infos.append(info)
+        return infos
     
-    def reset(self, idx, board=None, status=None, steps=None):
-        self.idx = idx
+    # def update_value(state, reward, a_best, Q, N_count):
+    #     Q[(state, a_best)] = (Q[(state, a_best)] * N_count[(state, a_best)] + reward) / (N_count[(state, a_best)] + 1)
+    #     N_count[(state, a_best)] += 1
+    #     return Q, N_count
+
+    def update_value(env, idx, propose_score, Q, N_count):
+        # updated value should be the average of all the propose scores
+        Q[idx] = (Q[idx] * N_count[idx] + propose_score) / (N_count[idx] + 1)
+        N_count[idx] += 1
+        return Q, N_count
+
+        # obs = env.reset(idx)
+        # done = False
+        # infos = []
+        # while not done:
+        #     responses = gpt(prompt_wrap(obs), model='gpt-4', n=5)
+        #     candidates_to_scores = {}
+        #     for response in responses:
+        #         parsed_response = parsed_response(response)
+        #         if parsed_response:
+        #             for candidate, score in parsed_response:
+        #                 candidates_to_scores[candidate] = candidates_to_scores.get(candidate, 0) + score
+        #     # choose candiate with highest score
+        #     print(sorted(candidates_to_scores.items(), key=lambda x: x[1], reverse=True))
+        #     if len(candidates_to_scores) == 0:
+        #         break
+        #     candidates =  sorted(candidates_to_scores, key=candidates_to_scores.get, reverse=True)
+        #     for candidate in candidates:
+        #         env_ = copy.deepcopy(env)
+        #         env_.step(candidate)
+        #         if not any(_ == 2 for _ in env_.status):
+        #             break
+        #     print(candidate)
+        #     # candidate = input()
+        #     obs, r, done, info = env.step(candidate)
+        #     print(obs)
+        #     print(env.steps, info)
+        #     print('-------------------\n\n\n')
+        #     infos.append(info)
+        # return infos
+    
+    def answered(env):
+        response = gpt(prompt_wrap(env.render()), model='gpt-4', n=1)[0]
+        if response == "answered":
+            return True
+        else:
+            return False
+
+    def rollout(env, s, depth, Q, N_count, C, num_actions):
+        if depth == 0:
+            return 0
+
+        if s in Q:
+            a_best = max(range(num_actions), key=lambda a: Q[(s, a)] + C * np.sqrt(np.log(N_count[s]) / N_count[(s, a)]))
+        else:
+            a_best = np.random.choice(num_actions)
+            Q[(s, a_best)] = 0
+            N_count[(s, a_best)] = 0
+
+        N_count[s] += 1
+        s_new = s + a_best
+        if s_new == "answered":
+            reward = computed_reward(s_new)  
+            update_value(s, reward)
+        else:
+            reward = rollout(s_new, depth - 1)
+        
+        update_value(s, reward)
+        return reward
+
+    def possible_actions(env):
+        response = gpt(prompt_wrap(env.render()), model='gpt-4', n=1)[None]*3
+        actions = []
+        for i in range(3):
+            actions = [r.text for r in (parse_response(response[i]))]
+        return actions
+    
+
+class MiniCrosswordsEnv: 
+    def __init__(self, file='mini0505.json'): 
+        self.file = os.path.join(DATA_PATH, 'crosswords', file) 
+        self.file = json.load(open(self.file)) 
+        self.n = len(self.file) 
+        self.cache = {} 
+        self.idx = None 
+        self.times = 0 
+        self.prompt_status_cache = {} 
+
+    def __len__(self): 
+        return self.n 
+    
+    def reset(self, idx, board=None, status=None, steps=None): 
+        self.idx = idx 
         # random.sample(idx)
         # if class
-        self.data, self.board_gt = self.file[idx]
-        self.board = ['_'] * 25
-        self.ans = ['_____'] * 10
+        self.data, self.board_gt = self.file[idx] 
+        self.board = ['_'] * 25 
+        self.ans = ['_____'] * 10 
         breakpoint()
-        self.ans_gt = self.get_ans(self.board_gt)
-        self.steps = 0
+        self.ans_gt = self.get_ans(self.board_gt) 
+        self.steps = 0 
         self.status = [0] * 10  # 0: unfilled; 1: filled; 2: filled then changed
-        if board is not None:
+        if board is not None: 
             self.board = board
-            self.ans = self.get_ans(self.board)
+            self.ans = self.get_ans(self.board) 
         if status is not None:
             self.status = status
         if steps is not None:

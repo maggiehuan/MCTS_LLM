@@ -5,15 +5,13 @@ import numpy as np
 import json
 from tot.prompts.crosswords import propose_prompt, value_prompt
 from tot.models import gpt
-from tot.tasks.crosswords import MiniCrosswordsEnv
-import MiniCrosswordsEnv as env
+from src.tot.tasks.crosswords import MiniCrosswordsEnv, CrosswordsEnv
 import re
 import copy
 from tot.models import gpt
 
 env = MiniCrosswordsEnv()
-
-openai.api_key = ""
+env1 = CrosswordsEnv()
 
 N = 10  # Rollouts
 L = 5   # Depth
@@ -67,7 +65,8 @@ def answered(state):
         return False
 
 # prompt也是Env
-history = env.prompt
+history = env.prompt_status_cache
+history = env1.prompt_wrap
 a_star = []
 
 # Main loop 
@@ -104,7 +103,16 @@ def PUCT(Q, N, t, c=1.0):
     chosen_action = np.argmax(values)
     return chosen_action
 
+def possible_actions(env):
+    response = gpt(prompt_wrap(env.render()), model='gpt-4', n=1)[None]*3
+    actions = []
+    for i in range(3):
+        actions = [r.text for r in (env1.parse_response(response[i]))]
+    return actions
+    
+
 # 调用api时需要GPT一次生成到一句话的结束，判断.的token，然后判断end token，
+# praser用法
 def possible_actions(state):
     response = [None] * 3
     for i in range(3):
@@ -191,8 +199,8 @@ def main():
                     #     state += best_action
 
                 # Backpropagation, reward computation, and value update
-                # 需要backpropagate到history中的每一个state
-                reward = computed_reward(next_state)
+                # 需要backpropagate到history中的每一个state ???
+                reward = env1.computed_reward(next_state)
                 update_value(next_state, reward, chosen_action, Q, N_count)
                         
 
@@ -201,7 +209,7 @@ def main():
             state = initial_state
             for n in range(depth_limit):
                 # 判断environment是否finished
-                if env.answered(state):
+                if env1.answered(state):
                     break
                 best_action = get_best_action(state)
                 a_star.append(best_action)
@@ -220,6 +228,5 @@ def main():
 if __name__ == "__main__":
     main()
 
-# 1. 生成n个action，封装成一个函数，每个action都需要更新一次searching，
 
 
