@@ -13,28 +13,26 @@ import copy
 from src.tot.models import gpt
 
 
-# prompt, get prompt, answered, reward, update value, rollout, computed reward,
-# class ENV:
-
-
-# ##读取文件 说明和answer的要求
-# ##组合prompt 用说明组合prompt
-# 用answer组合reward
-# 用下面的env组合我们自己的env-> 先看懂每个函数，然后哪些是我们需要的or可以直接用的
-# 没有的需要设计一下
-# pdb调试工具的学习，一些基本功能
-# 实现env，然后把mcts02的部分换成env
-# 完善MCTS file
-
 
 class CrosswordsEnv:
+    def __init__(self, file='0505.json'):
+        self.file = os.path.join(DATA_PATH, 'crosswords', file)
+        self.file = json.load(open(self.file))
+        self.n = len(self.file)
+        self.cache = {}
+        self.idx = None
+        self.times = 0
+        self.prompt_status_cache = {}
+        self.rewardF = {'certain': 1, 'high': 0.5, 'medium': 0.2, 'low': 0.1}
+  
 
-    def prompt_wrap(observation):
+
+    def prompt_wrap(self, observation):
+            
             return propose_prompt.format(input=observation) 
-            breakpoint()
 
 
-    def parse_line(input_str):
+    def parse_line(self, input_str):
         # regular expression pattern to match the input string format
         pattern = r'^([hv][1-5])\. ([a-zA-Z]{5,5}) \((certain|high|medium|low)\).*$'
 
@@ -50,30 +48,28 @@ class CrosswordsEnv:
 
     confidence_to_value = {'certain': 1, 'high': 0.5, 'medium': 0.2, 'low': 0.1}  
 
-    def parse_response(response):
+    def parse_response(self, response):
         # split the response into lines
         lines = response.split('\n')
-
         # parse each line
-        parsed_lines = [parsed_lines(line) for line in lines]
-
+        parsed_lines = [self.parse_line(line) for line in lines]
         # filter out the lines that didn't match the format
-        parsed_lines = [(line[0].lower() + '. ' + line[1].lower(), confidence_to_value.get(line[2], 0)) for line in parsed_lines if line is not None]
+        parsed_lines = [(line[0].lower() + '. ' + line[1].lower(), self.rewardF.get(line[2], 0)) for line in parsed_lines if line is not None]
 
         return parsed_lines if len(parsed_lines) >= 1 else None
 
 
-    #def get_candidates_to_scores(env): ## Reward
-    def reward(env):
-        obs = env.render()
+    # reward用上一个的分数写
+    def reward(self):
+        obs = self.render()
         if obs in env.cache: 
             print('cache hit')
             return env.cache[obs]
         print('call gpt')
-        responses = gpt(prompt_wrap(obs), model='gpt-4', n=8)
+        responses = gpt(self.prompt_wrap(obs), model='gpt-4', n=8)
         candidates_to_scores = {}
         for response in responses:
-            parsed_response = parse_response(response)
+            parsed_response = self.parse_response(response)
             if parsed_response:
                 for candidate, score in parsed_response:
                     candidates_to_scores[candidate] = candidates_to_scores.get(candidate, 0) + score
@@ -82,13 +78,12 @@ class CrosswordsEnv:
         env.cache[obs] = candidates_to_scores
         return candidates_to_scores
 
-    # def propose_score(env, idx): # computed reward
-    def computed_reward(env, idx):
+    def computed_reward(self, idx):
         obs = env.reset(idx)
         done = False
         infos = []
         while not done:
-            responses = gpt(prompt_wrap(obs), model='gpt-4', n=5)
+            responses = gpt(self.prompt_wrap(obs), model='gpt-4', n=5)
             candidates_to_scores = {}
             for response in responses:
                 parsed_response = parsed_response(response)
@@ -114,16 +109,38 @@ class CrosswordsEnv:
             infos.append(info)
         return infos
     
+
+    def prompt_status(self):
+        count = {'sure': 0, 'maybe': 0, 'impossible': 0}
+        for ans, data, status in zip(self.ans, self.data, self.status):
+            # if status != 0: continue
+            if ans.count('_') >= 4: continue
+            ans = ' '.join(ans.lower())
+            line = f'{data}: {ans}'
+            prompt = value_prompt.format(input=line)
+            if prompt in self.prompt_status_cache:
+                res = self.prompt_status_cache[prompt]
+            else:
+                res = gpt(prompt)[0]
+                self.prompt_status_cache[prompt] = res
+            # print(line)
+            # print(res)
+            # print()
+            res = res.split('\n')[-1].strip()
+            if res in count: count[res] += 1
+        # print(count)
+        return count
+
     # def update_value(state, reward, a_best, Q, N_count):
     #     Q[(state, a_best)] = (Q[(state, a_best)] * N_count[(state, a_best)] + reward) / (N_count[(state, a_best)] + 1)
     #     N_count[(state, a_best)] += 1
     #     return Q, N_count
 
-    def update_value(env, idx, propose_score, Q, N_count):
-        # updated value should be the average of all the propose scores
-        Q[idx] = (Q[idx] * N_count[idx] + propose_score) / (N_count[idx] + 1)
-        N_count[idx] += 1
-        return Q, N_count
+    # def update_value(env, idx, propose_score, Q, N_count):
+    #     # updated value should be the average of all the propose scores
+    #     Q[idx] = (Q[idx] * N_count[idx] + propose_score) / (N_count[idx] + 1)
+    #     N_count[idx] += 1
+    #     return Q, N_count
 
         # obs = env.reset(idx)
         # done = False
@@ -155,41 +172,41 @@ class CrosswordsEnv:
         #     infos.append(info)
         # return infos
     
-    def answered(env):
-        response = gpt(prompt_wrap(env.render()), model='gpt-4', n=1)[0]
+    def answered(self):
+        response = gpt(self.prompt_wrap(env.render()), model='gpt-4', n=1)[0]
         if response == "answered":
             return True
         else:
             return False
 
-    def rollout(env, s, depth, Q, N_count, C, num_actions):
-        if depth == 0:
-            return 0
+    # def rollout(env, s, depth, Q, N_count, C, num_actions):
+    #     if depth == 0:
+    #         return 0
 
-        if s in Q:
-            a_best = max(range(num_actions), key=lambda a: Q[(s, a)] + C * np.sqrt(np.log(N_count[s]) / N_count[(s, a)]))
-        else:
-            a_best = np.random.choice(num_actions)
-            Q[(s, a_best)] = 0
-            N_count[(s, a_best)] = 0
+    #     if s in Q:
+    #         a_best = max(range(num_actions), key=lambda a: Q[(s, a)] + C * np.sqrt(np.log(N_count[s]) / N_count[(s, a)]))
+    #     else:
+    #         a_best = np.random.choice(num_actions)
+    #         Q[(s, a_best)] = 0
+    #         N_count[(s, a_best)] = 0
 
-        N_count[s] += 1
-        s_new = s + a_best
-        if s_new == "answered":
-            reward = computed_reward(s_new)  
-            update_value(s, reward)
-        else:
-            reward = rollout(s_new, depth - 1)
+    #     N_count[s] += 1
+    #     s_new = s + a_best
+    #     if s_new == "answered":
+    #         reward = computed_reward(s_new)  
+    #         update_value(s, reward)
+    #     else:
+    #         reward = rollout(s_new, depth - 1)
         
-        update_value(s, reward)
-        return reward
+    #     update_value(s, reward)
+    #     return reward
 
-    def possible_actions(env):
-        response = gpt(prompt_wrap(env.render()), model='gpt-4', n=1)[None]*3
-        actions = []
-        for i in range(3):
-            actions = [r.text for r in (parse_response(response[i]))]
-        return actions
+    # def possible_actions(env):
+    #     response = gpt(prompt_wrap(env.render()), model='gpt-4', n=1)[None]*3
+    #     actions = []
+    #     for i in range(3):
+    #         actions = [r.text for r in (parse_response(response[i]))]
+    #     return actions
     
 
 class MiniCrosswordsEnv: 
