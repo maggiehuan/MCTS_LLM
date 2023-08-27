@@ -43,3 +43,6 @@ def gpt_usage(backend="gpt-4"):
     elif backend == "gpt-3.5-turbo":
         cost = completion_tokens / 1000 * 0.002 + prompt_tokens / 1000 * 0.0015
     return {"completion_tokens": completion_tokens, "prompt_tokens": prompt_tokens, "cost": cost}
+
+if __name__ == "__main__":
+    print(gpt("Hello, I am a robot."))
