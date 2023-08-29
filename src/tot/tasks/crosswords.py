@@ -6,7 +6,7 @@ from src.tot.prompts.crosswords import *
 from src.tot.models import gpt
 # import openai
 # import torch
-import torch.optim as optim
+#import torch.optim as optim
 import numpy as np
 from src.tot.prompts.crosswords import propose_prompt, value_prompt
 import copy
@@ -27,9 +27,8 @@ class CrosswordsEnv:
   
 
 
-    def prompt_wrap(self, observation):
-            
-            return propose_prompt.format(input=observation) 
+    def prompt_wrap(self, observation):    
+        return propose_prompt.format(input=observation) 
 
 
     def parse_line(self, input_str):
@@ -209,33 +208,33 @@ class CrosswordsEnv:
     #     return actions
     
 
-class MiniCrosswordsEnv: 
-    def __init__(self, file='mini0505.json'): 
-        self.file = os.path.join(DATA_PATH, 'crosswords', file) 
-        self.file = json.load(open(self.file)) 
-        self.n = len(self.file) 
-        self.cache = {} 
-        self.idx = None 
-        self.times = 0 
-        self.prompt_status_cache = {} 
+class MiniCrosswordsEnv:
+    def __init__(self, file='mini0505.json'):
+        self.file = os.path.join(DATA_PATH, 'crosswords', file)
+        self.file = json.load(open(self.file))
+        self.n = len(self.file)
+        self.cache = {}
+        self.idx = None
+        self.times = 0
+        self.prompt_status_cache = {}
 
-    def __len__(self): 
-        return self.n 
+    def __len__(self):
+        return self.n
     
-    def reset(self, idx, board=None, status=None, steps=None): 
-        self.idx = idx 
-        # random.sample(idx)
-        # if class
-        self.data, self.board_gt = self.file[idx] 
-        self.board = ['_'] * 25 
-        self.ans = ['_____'] * 10 
-        breakpoint()
-        self.ans_gt = self.get_ans(self.board_gt) 
-        self.steps = 0 
+    def prompt_wrap(self, observation):  
+        return propose_prompt.format(input=observation) 
+    
+    def reset(self, idx, board=None, status=None, steps=None):
+        self.idx = idx
+        self.data, self.board_gt = self.file[idx]
+        self.board = ['_'] * 25
+        self.ans = ['_____'] * 10
+        self.ans_gt = self.get_ans(self.board_gt)
+        self.steps = 0
         self.status = [0] * 10  # 0: unfilled; 1: filled; 2: filled then changed
-        if board is not None: 
+        if board is not None:
             self.board = board
-            self.ans = self.get_ans(self.board) 
+            self.ans = self.get_ans(self.board)
         if status is not None:
             self.status = status
         if steps is not None:
@@ -461,6 +460,7 @@ class MiniCrosswordsTask(Task):
             if res in count: count[res] += 1
         print(count)
         return count
+
 
 ### 测试实例
 if __name__ == '__main__':

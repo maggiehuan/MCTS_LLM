@@ -3,11 +3,9 @@ import torch
 import torch.optim as optim
 import numpy as np
 import json
-from tot.prompts.crosswords import propose_prompt, value_prompt
+from src.tot.prompts.crosswords import cot_prompt
 from tot.models import gpt
 from src.tot.tasks.crosswords import MiniCrosswordsEnv, CrosswordsEnv
-import re
-import copy
 from tot.models import gpt
 
 env = MiniCrosswordsEnv()
@@ -38,7 +36,7 @@ def rollout(s, depth):
     N_count[s] += 1
     s_new = s + a_best
     if s_new == "answered":
-        reward = computed_reward(s_new)  
+        reward = env1.reward(s_new)  
         update_value(s, reward)
     else:
         reward = rollout(s_new, depth - 1)
@@ -48,54 +46,21 @@ def rollout(s, depth):
     return reward
 
 
-def computed_reward(state):
-
-    return torch.rand(1)  
-
 def update_value(state, reward, a_best, Q, N_count):
     Q[(state, a_best)] = (Q[(state, a_best)] * N_count[(state, a_best)] + reward) / (N_count[(state, a_best)] + 1)
     N_count[(state, a_best)] += 1
 
-# 需要根据GPT-3的输出来判断是否已经回答完毕 需要设计一下prompt， 然后state的定义需要定义清楚
-# 都变成environment的一部分， ENV.answer
-def answered(state):
-    if state == env.answered:
-        return True
-    else:
-        return False
 
-# prompt也是Env
 history = env.prompt_status_cache
 history = env1.prompt_wrap
 a_star = []
 
-# Main loop 
-# for _ in range(N):
-#     # 
-#     s_0 = "prompt" 
-
-
-#     for n in range(L):
-#         if s_0 in Q:
-#             a_best = max(range(num_actions), key=lambda a: Q[(s_0, a)] + C * np.sqrt(np.log(N_count[s_0]) / N_count[(s_0, a)]))
-#         else:
-#             a_best = np.random.choice(num_actions)
-#             Q[(s_0, a_best)] = 0
-#             N_count[(s_0, a_best)] = 0
-
-#         N_count[s_0] += 1
-#         a_star.append(a_best)
-#         s_0 = s_0 + a_best
-#         history.append(s_0)
-
-
 def prompt_wrap(obs):
-    return propose_prompt.format(input=obs)
+    return cot_prompt.format(input=obs)
 
 def get_best_action(self):
     best_child = max(self.children, key=lambda node: node.visits)
     return self.get_action_to_reach_child(best_child)
-
 
 def PUCT(Q, N, t, c=1.0):
     # PUCT 
@@ -109,16 +74,13 @@ def possible_actions(env):
     for i in range(3):
         actions = [r.text for r in (env1.parse_response(response[i]))]
     return actions
-    
 
-# 调用api时需要GPT一次生成到一句话的结束，判断.的token，然后判断end token，
-# praser用法
-def possible_actions(state):
+def possible_actions(state, idx):
+    obs = env1.reset(idx)
     response = [None] * 3
     for i in range(3):
         response[i] = openai.Completion.create(
             engine="text-davinci-003",
-            ############################### 控制生成的方式，多个end token，需要去看一下官网 
             prompt=state,
             max_tokens=1
     )
@@ -128,17 +90,17 @@ def possible_actions(state):
 # LLAMA or GPT-4
 
 def main():
-    M_theta = GenerativeLLM()  
-    optimizer = optim.Adam(M_theta.parameters(), lr=0.001)
-    initial_state = "prompt"
+    #M_theta = GenerativeLLM()  
+    #optimizer = optim.Adam(M_theta.parameters(), lr=0.001)
+    initial_state = env1.prompt_wrap(env1.render())
     reward = 0.0
     N = 10  # Number of rollouts
     depth = 3  # Depth of exploration
     depth_limit = 5  # Depth limit
+    iterations = 10  # Training iterations
     T = 5
      
 # "prompt", reward, finish    env.
-
     for iteration in range(5, 11):  # Training iterations 5-10
         # Data Collection
         training_data = []
@@ -164,10 +126,10 @@ def main():
                                 prompt=state,
                                 max_tokens=1
                             )
-                            # 生成n个action，封装成一个函数，每个action都需要更新一次searching，
                             possible_action = response.choices[0].text
 
-                            # state 没有更新
+                            # state 更新  不太确定
+                            state = state + possible_action
 
                             generated_actions.add(state)
                             
@@ -182,11 +144,11 @@ def main():
                             
                         # Expand by applying chosen action
                         next_state = state + chosen_action
-                        if answered(next_state):
+                        if env1.answered(next_state):
                             break
                         
                         # Backpropagation, reward computation, and value update
-                        reward = computed_reward(next_state)
+                        reward = env1.reward(next_state)
                         update_value(next_state, reward, chosen_action, Q, N_count)
                         
 
@@ -200,7 +162,7 @@ def main():
 
                 # Backpropagation, reward computation, and value update
                 # 需要backpropagate到history中的每一个state ???
-                reward = env1.computed_reward(next_state)
+                reward = env1.reward(next_state)
                 update_value(next_state, reward, chosen_action, Q, N_count)
                         
 
@@ -219,11 +181,11 @@ def main():
             training_data.append(state)
         
         # Fine-tune LLM
-        def finetune(): 
-            optimizer.zero_grad()
-            loss = loss_function() 
-            loss.backward()
-            optimizer.step()
+        # def finetune(): 
+        #     optimizer.zero_grad()
+        #     loss = loss_function() 
+        #     loss.backward()
+        #     optimizer.step()
 
 if __name__ == "__main__":
     main()
