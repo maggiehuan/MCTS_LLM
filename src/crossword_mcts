@@ -6,7 +6,7 @@ from tot.prompts.crosswords import *
 from tot.models import gpt
 # import openai
 # import torch
-import torch.optim as optim
+# import torch.optim as optim
 import numpy as np
 from tot.prompts.crosswords import cot_prompt
 import copy
@@ -14,24 +14,30 @@ import copy
 
 class CrosswordsEnv:
 
-    def __init__(self, file='/home/ziyu/code/LLMs/mcts-llm/src/tot/data/crosswords/mini0505.json'):
+    def __init__(self, file):
+        DATA_PATH = '/home/ziyu/code/LLMs/mcts-llm/src/tot/data/crosswords/mini0505.json'
         self.file = os.path.join(DATA_PATH, 'crosswords', file)
         self.file = json.load(open(self.file))
         self.n = len(self.file)
-        self.idx = None
+        self.idx = 0
+        self.data = None
+        self.board_gt = None
         self.times = 0
         self.status = [0] * 10
+
 
     def __len__(self): # question
         return self.n
 
     def prompt_wrap(self, observation):
-            return cot_prompt.format(input=observation) 
+        return cot_prompt.format(input=observation) 
             # breakpoint()
 
     def reset(self, idx): 
         self.idx = idx 
-        self.data, self.board_gt = self.file[idx] 
+        self.data = self.file[idx][1] 
+        self.board_gt = self.file[idx] 
+        print(self.data)
 
     def reward(self, output: str):
         output = output.split('Output:\n')[-1]
@@ -43,7 +49,7 @@ class CrosswordsEnv:
         print(letters)
 
         for i in range(0, len(letters), 5):
-            print(letters[i:i+5])
+            # print(letters[i:i+5])
             if letters[i:i+5] == self.data[i:i+5]:
                 reward_letter += 1
         reward_letter = reward_letter / 5
@@ -56,9 +62,9 @@ class CrosswordsEnv:
         return reward, reward_letter
 
     def answered(self, output: str):
-        # env = copy.deepcopy(self)
-        if len(output.split('Output:\n')) % 10 ==0:
-            return True
+        if output == "Output:\n":
+            if len(output.split('Output:\n')[-1].split('\n')) == 5:
+                return True
         else:
             return False
         # response = gpt(self.prompt_wrap(env.render()), model='gpt-4', n=1)[0]
@@ -125,6 +131,7 @@ class MiniCrosswordsTask(Task):
 if __name__ == '__main__':
     file='/home/ziyu/code/LLMs/mcts-llm/src/tot/data/crosswords/mini0505.json'
     env = CrosswordsEnv(file)
+    env.reset(5)
     onput = '''R I L L E
 O L E I N
 T E M P T
