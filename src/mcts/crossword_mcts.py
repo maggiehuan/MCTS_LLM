@@ -25,13 +25,53 @@ class CrosswordsEnv:
         self.times = 0
         self.status = [0] * 10
 
+        self.input_data = self.file[0][0]
+        #print(self.input_data)
+        self.processed_input = self.prompt_input()
+
+    def get_input_data(self, state):
+        input = self.prompt_input()
+
+        input_data = {  
+            "messages": [  
+                {"role": "system", "content": "Solve 5x5 mini crosswords. Given an input of 5 horizontal clues and 5 vertical clues, generate thoughts about which 5-letter word fits each clue, then an output of 5 rows, where each row is 5 letter separated by space."},  
+                {"role": "user", "content": "Input: h1. A lunar valley\nh2. A fatty oil\nh3. To entice\nh4. To lower; to reduce\nh5. A solitary person\n\
+v1. According to the roster\nv2. Another name for Port-Francqui\nv3. An illicit lover; a European lake\nv4. To lisp\nv5. To come in\n\
+Thoughts:\nh1. Presented; revealed: SHOWN\nh2. An interjection expressing sorrow: WIRRA\nh3. Benefit; result: AVAIL\nh4. A cigarette: RETTE\nh5. Chased up a tree: TREED\n\
+v1. Swarthy; tawny: SWART\nv2. An apiarist or bee keeper: HIVER\nv3. To speak formally: ORATE\nv4. To indite; to scribble: WRITE\nv5. An insecticide: NALED\n\
+Output:R I L L E\nO L E I N\nT E M P T\nA B A S E\nL O N E R\n\
+Input: {input}\n{state}".format(input=input, state=state)},
+                #{"role": "user", "content": "Output:"}
+            ],  
+            "max_tokens": 500,
+            "temperature": 0.7,
+            "n":5
+        }
+
+        # append一下state
+
+        return input_data
+
+    def prompt_input(self):
+        section = ""
+        for i, item in enumerate(self.input_data):
+            #section += f"h{i + 1}. {{}}".format(item)
+            if i < 5:
+                section += f"h{i + 1}. {item}: \n"
+            else:
+                section += f"v{i - 4}. {item}: \n"
+            #section += cot_prompt_format.format(input=section)
+        section += "Thoughts:"
+        #print(section)
+        return section
 
     def __len__(self): # question
         return self.n
 
-    def prompt_wrap(self, observation):
-        return cot_prompt.format(input=observation) 
-            # breakpoint()
+    def prompt(self):
+        print(cot_prompt_format.format(input=self.input_data))
+        return cot_prompt.format(input=self.input_data) 
+        
 
     def reset(self, idx): 
         self.idx = idx 

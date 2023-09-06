@@ -1,40 +1,51 @@
-import openai
-import torch
-import torch.optim as optim
+#import openai
+# import torch
+# import torch.optim as optim
 import numpy as np
 import json
 from src.tot.prompts.crosswords import cot_prompt
-from tot.models import gpt
-from src.tot.tasks.crosswords import MiniCrosswordsEnv, CrosswordsEnv
-from tot.models import gpt
+from src.tot.models import gpt
+from mcts.crossword_mcts import CrosswordsEnv
+from src.tot.models import gpt
 
 import os
 import requests
 import json
+import re
 
 model = ['gpt-4', 'gpt-4-32k', 'gpt-35-turbo']
 model_choice = "gpt-4-32k"
 API_KEY = os.environ.get("OPENAI_API_KEY")
 API_ENDPOINT = f"https://gcrgpt4aoai5c.openai.azure.com/openai/deployments/{model_choice}/chat/completions?api-version=2023-03-15-preview"
 
-input_data = {  
-    "messages": [  
-        {"role": "system", "content": "Solve 5x5 mini crosswords. Given an input of 5 horizontal clues and 5 vertical clues, generate thoughts about which 5-letter word fits each clue, then an output of 5 rows, where each row is 5 letter separated by space."},  
-        {"role": "user", "content": "Input: h1. A lunar valley\nh2. A fatty oil\nh3. To entice\nh4. To lower; to reduce\nh5. A solitary person\nv1. According to the roster\nv2. Another name for Port-Francqui\nv3. An illicit lover; a European lake\nv4. To lisp\nv5. To come in\nThoughts:\nh1. Presented; revealed: SHOWN\nh2. An interjection expressing sorrow: WIRRA\nh3. Benefit; result: AVAIL\nh4. A cigarette: RETTE\nh5. Chased up a tree: TREED\nv1. Swarthy; tawny: SWART\nv2. An apiarist or bee keeper: HIVER\nv3. To speak formally: ORATE\nv4. To indite; to scribble: WRITE\nv5. An insecticide: NALED\nOutput:R I L L E\nO L E I N\nT E M P T\nA B A S E\nL O N E R\nInput:\nAn agendum; something to be done\nAn engine\nPretentious; flowery\nA salon; a hall\nTo mock; to sneer\nTo heap\nAn Indian antelope\nTo intend; to plan; to devise; a nettle; to guess\nA nozzle\nDesiccator; more dry"},
-        #{"role": "user", "content": "Output:"}
-    ],  
-    "max_tokens": 500,
-    "temperature": 0.7,
-    "n":5
-}
+prompt_path = "/home/ziyu/code/LLMs/mcts-llm/src/tot/data/crosswords/mini0505.json"
+
+
+input = json.load(open(prompt_path))
+input = input[0][0] # 循环的i改在第一个框内
+
+env_crosswords = CrosswordsEnv(prompt_path)
+# input = env_crosswords.prompt_input()
+
+# input_data = {  
+#     "messages": [  
+#         {"role": "system", "content": "Solve 5x5 mini crosswords. Given an input of 5 horizontal clues and 5 vertical clues, generate thoughts about which 5-letter word fits each clue, then an output of 5 rows, where each row is 5 letter separated by space."},  
+#         {"role": "user", "content": "Input: h1. A lunar valley\nh2. A fatty oil\nh3. To entice\nh4. To lower; to reduce\nh5. A solitary person\n\
+# v1. According to the roster\nv2. Another name for Port-Francqui\nv3. An illicit lover; a European lake\nv4. To lisp\nv5. To come in\n\
+# Thoughts:\nh1. Presented; revealed: SHOWN\nh2. An interjection expressing sorrow: WIRRA\nh3. Benefit; result: AVAIL\nh4. A cigarette: RETTE\nh5. Chased up a tree: TREED\n\
+# v1. Swarthy; tawny: SWART\nv2. An apiarist or bee keeper: HIVER\nv3. To speak formally: ORATE\nv4. To indite; to scribble: WRITE\nv5. An insecticide: NALED\n\
+# Output:R I L L E\nO L E I N\nT E M P T\nA B A S E\nL O N E R\n\
+# Input: {input}\n".format(input=input)},
+#         #{"role": "user", "content": "Output:"}
+#     ],  
+#     "max_tokens": 500,
+#     "temperature": 0.7,
+#     "n":5
+# }
 
 headers = {'Content-Type': 'application/json', 'api-key': API_KEY}  
 # response = requests.post(API_ENDPOINT, json=input_data, headers=headers)
 
-prompt_path = "/home/ziyu/code/LLMs/mcts-llm/src/tot/data/crosswords/mini0505.json"
-
-env = MiniCrosswordsEnv()
-env1 = CrosswordsEnv()
 
 N = 10  # Rollouts
 L = 5   # Depth
@@ -47,7 +58,7 @@ Q = {}
 N_count = {}
 
 # Rollout process
-def rollout(s, depth):
+def rollout(env, s, depth):
     if depth == 0:
         return 0
 
@@ -61,7 +72,7 @@ def rollout(s, depth):
     N_count[s] += 1
     s_new = s + a_best
     if s_new == "answered":
-        reward = env1.reward(s_new)  
+        reward = env.reward(s_new)  
         update_value(s, reward)
     else:
         reward = rollout(s_new, depth - 1)
@@ -76,8 +87,7 @@ def update_value(state, reward, a_best, Q, N_count):
     N_count[(state, a_best)] += 1
 
 
-history = env.prompt_status_cache
-history = env1.prompt_wrap
+# history = env1.prompt_wrap
 a_star = []
 
 def prompt_wrap(obs):
@@ -93,33 +103,28 @@ def PUCT(Q, N, t, c=1.0):
     chosen_action = np.argmax(values)
     return chosen_action
 
-def possible_actions(env):
-    response = requests.post(API_ENDPOINT, json=input_data, headers=headers)
-    # gpt(prompt_wrap(env.render()), model='gpt-4', n=1)[None]*3
-    # TODO 这里还需要确定一下action的格式和调用方式 -- need verification n种第一句话
-    actions = []
-    for i in range(3):
-        actions = [r.text for r in (env1.parse_response(response[i]))]
+def possible_actions(env, state):
+    # response = requests.post(API_ENDPOINT, json=env.get_input_data(state), headers=headers)
+    # actions = []
+    # print(response.json())
+    response_exm = {'id': 'chatcmpl-7vgfmUUFqFgezspU4okLbr00iM71w', 'object': 'chat.completion', 'created': 1693983086, 'model': 'gpt-4-32k', 'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': 'h1. An agendum; something to be done: TASKS\nh2. An engine: MOTOR\nh3. Pretentious; flowery: FANCY\nh4. A salon; a hall: PARLOR\nh5. To mock; to sneer: SCOFF\n\nv1. To heap: STACK\nv2. An Indian antelope: NILGAI\nv3. To intend; to plan; to devise; a nettle; to guess: MEANT\nv4. A nozzle: SPOUT\nv5. Desiccator; more dry: DRIER\n\nOutput: T A S K S\nM O T O R\nF A N C Y\nP A R L O R\nS C O F F'}, 'finish_reason': 'stop'}, {'index': 1, 'message': {'role': 'assistant', 'content': 'h1. An agendum; something to be done: TASKS\nh2. An engine: MOTOR\nh3. Pretentious; flowery: FANCY\nh4. A salon; a hall: PARLOR\nh5. To mock; to sneer: SCOFF\n\nv1. To heap: PILE\nv2. An Indian antelope: NILGAI\nv3. To intend; to plan; to devise; a nettle; to guess: MEANT\nv4. A nozzle: SPOUT\nv5. Desiccator; more dry: DRIER\n\nOutput: T A S K S\nM O T O R\nF A N C Y\nP A R L O R\nS C O F F'}, 'finish_reason': 'stop'}, {'index': 2, 'message': {'role': 'assistant', 'content': 'h1. An agendum; something to be done: TASKS\r\nh2. An engine: MOTOR\r\nh3. Pretentious; flowery: FANCY\r\nh4. A salon; a hall: LOBBY\r\nh5. To mock; to sneer: SCOFF\r\nv1. To heap: PILET\r\nv2. An Indian antelope: NILGA\r\nv3. To intend; to plan; to devise; a nettle; to guess: MEANT\r\nv4. A nozzle: SPOUT\r\nv5. Desiccator; more dry: DRIER\r\nOutput:\r\nT A S K S\r\nM O T O R\r\nF A N C Y\r\nL O B B Y\r\nS C O F F'}, 'finish_reason': 'stop'}, {'index': 3, 'message': {'role': 'assistant', 'content': 'h1. An agendum; something to be done: TASKS\r\nh2. An engine: MOTOR\r\nh3. Pretentious; flowery: FANCY\r\nh4. A salon; a hall: FOYER\r\nh5. To mock; to sneer: SCOFF\r\nv1. To heap: STACK\r\nv2. An Indian antelope: NILGA\r\nv3. To intend; to plan; to devise; a nettle; to guess: MEANT\r\nv4. A nozzle: SPOUT\r\nv5. Desiccator; more dry: DRIER\r\nOutput: T A S K S\r\nM O T O R\r\nF A N C Y\r\nF O Y E R\r\nS C O F F'}, 'finish_reason': 'stop'}, {'index': 4, 'message': {'role': 'assistant', 'content': 'h1. An agendum; something to be done: TASKS\r\nh2. An engine: MOTOR\r\nh3. Pretentious; flowery: FANCY\r\nh4. A salon; a hall: PARLOR\r\nh5. To mock; to sneer: SCOFF\r\n\r\nv1. To heap: PILE\r\nv2. An Indian antelope: NILGAI\r\nv3. To intend; to plan; to devise; a nettle; to guess: MEANT\r\nv4. A nozzle: SPOUT\r\nv5. Desiccator; more dry: DRIER\r\n\r\nOutput:\r\nT A S K S\r\nM O T O R\r\nF A N C Y\r\nP A R L O R\r\nS C O F F'}, 'finish_reason': 'stop'}], 'usage': {'prompt_tokens': 410, 'completion_tokens': 800, 'total_tokens': 1210}}
+
+    #print(response_exm['choices'][0]['message'])
+    for i in range(5):
+        # actions = [r.text for r in (response[i])]
+        actions = []
+        content = response_exm['choices'][i]['message']['content']
+        print(content)
+        print("-----------------------------------")
+        content = content.split("\n")
+        actions.append(content)
+
     return actions
-
-def possible_actions(state, idx):
-    obs = env1.reset(idx)
-    response = [None] * 3
-    for i in range(3):
-        response[i] = openai.Completion.create(
-            engine="text-davinci-003",
-            prompt=state,
-            max_tokens=1
-    )
-
-    possible_action = [r.text for r in response]
-    return possible_action
-# LLAMA or GPT-4
 
 def main():
     #M_theta = GenerativeLLM()  
     #optimizer = optim.Adam(M_theta.parameters(), lr=0.001)
-    initial_state = env1.prompt_wrap(env1.render())
+    initial_state = env_crosswords.prompt()
     reward = 0.0
     N = 10  # Number of rollouts
     depth = 3  # Depth of exploration
@@ -136,6 +141,8 @@ def main():
             rollouts = []
             Q = {}
             N_count = {}
+
+
             for _ in range(N):
                 state = initial_state
                 history = []
@@ -143,14 +150,13 @@ def main():
                 
 
                 for n in range(depth_limit):
+                # while True:
                     if n < depth:
                         if state in generated_actions:
-                        
                             pass
                         else:
                             response = requests.post(API_ENDPOINT, json=input_data, headers=headers)
-                            # TODO Prompt wraping需要重新看一下，主要是json如何按顺序读入，应该需要一个循环
-                             
+                            
                             possible_action = response.choices[0].text
 
                             # state 更新  不太确定
@@ -208,7 +214,8 @@ def main():
         #     optimizer.step()
 
 if __name__ == "__main__":
-    main()
+    state = ""
+    possible_actions(env_crosswords, state)
 
 
 

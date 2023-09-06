@@ -91,6 +91,7 @@ class CrosswordsEnv:
                         candidates_to_scores[candidate] = candidates_to_scores.get(candidate, 0) + score
             # choose candiate with highest score
             print(sorted(candidates_to_scores.items(), key=lambda x: x[1], reverse=True))
+            
             if len(candidates_to_scores) == 0:
                 break
             candidates =  sorted(candidates_to_scores, key=candidates_to_scores.get, reverse=True)
