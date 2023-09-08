@@ -5,7 +5,7 @@ import numpy as np
 import json
 from src.tot.prompts.crosswords import cot_prompt
 from src.tot.models import gpt
-from mcts.crossword_mcts import CrosswordsEnv
+from src.mcts.crossword_mcts import CrosswordsEnv
 from src.tot.models import gpt
 
 import os
@@ -109,17 +109,37 @@ def possible_actions(env, state):
     # print(response.json())
     response_exm = {'id': 'chatcmpl-7vgfmUUFqFgezspU4okLbr00iM71w', 'object': 'chat.completion', 'created': 1693983086, 'model': 'gpt-4-32k', 'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': 'h1. An agendum; something to be done: TASKS\nh2. An engine: MOTOR\nh3. Pretentious; flowery: FANCY\nh4. A salon; a hall: PARLOR\nh5. To mock; to sneer: SCOFF\n\nv1. To heap: STACK\nv2. An Indian antelope: NILGAI\nv3. To intend; to plan; to devise; a nettle; to guess: MEANT\nv4. A nozzle: SPOUT\nv5. Desiccator; more dry: DRIER\n\nOutput: T A S K S\nM O T O R\nF A N C Y\nP A R L O R\nS C O F F'}, 'finish_reason': 'stop'}, {'index': 1, 'message': {'role': 'assistant', 'content': 'h1. An agendum; something to be done: TASKS\nh2. An engine: MOTOR\nh3. Pretentious; flowery: FANCY\nh4. A salon; a hall: PARLOR\nh5. To mock; to sneer: SCOFF\n\nv1. To heap: PILE\nv2. An Indian antelope: NILGAI\nv3. To intend; to plan; to devise; a nettle; to guess: MEANT\nv4. A nozzle: SPOUT\nv5. Desiccator; more dry: DRIER\n\nOutput: T A S K S\nM O T O R\nF A N C Y\nP A R L O R\nS C O F F'}, 'finish_reason': 'stop'}, {'index': 2, 'message': {'role': 'assistant', 'content': 'h1. An agendum; something to be done: TASKS\r\nh2. An engine: MOTOR\r\nh3. Pretentious; flowery: FANCY\r\nh4. A salon; a hall: LOBBY\r\nh5. To mock; to sneer: SCOFF\r\nv1. To heap: PILET\r\nv2. An Indian antelope: NILGA\r\nv3. To intend; to plan; to devise; a nettle; to guess: MEANT\r\nv4. A nozzle: SPOUT\r\nv5. Desiccator; more dry: DRIER\r\nOutput:\r\nT A S K S\r\nM O T O R\r\nF A N C Y\r\nL O B B Y\r\nS C O F F'}, 'finish_reason': 'stop'}, {'index': 3, 'message': {'role': 'assistant', 'content': 'h1. An agendum; something to be done: TASKS\r\nh2. An engine: MOTOR\r\nh3. Pretentious; flowery: FANCY\r\nh4. A salon; a hall: FOYER\r\nh5. To mock; to sneer: SCOFF\r\nv1. To heap: STACK\r\nv2. An Indian antelope: NILGA\r\nv3. To intend; to plan; to devise; a nettle; to guess: MEANT\r\nv4. A nozzle: SPOUT\r\nv5. Desiccator; more dry: DRIER\r\nOutput: T A S K S\r\nM O T O R\r\nF A N C Y\r\nF O Y E R\r\nS C O F F'}, 'finish_reason': 'stop'}, {'index': 4, 'message': {'role': 'assistant', 'content': 'h1. An agendum; something to be done: TASKS\r\nh2. An engine: MOTOR\r\nh3. Pretentious; flowery: FANCY\r\nh4. A salon; a hall: PARLOR\r\nh5. To mock; to sneer: SCOFF\r\n\r\nv1. To heap: PILE\r\nv2. An Indian antelope: NILGAI\r\nv3. To intend; to plan; to devise; a nettle; to guess: MEANT\r\nv4. A nozzle: SPOUT\r\nv5. Desiccator; more dry: DRIER\r\n\r\nOutput:\r\nT A S K S\r\nM O T O R\r\nF A N C Y\r\nP A R L O R\r\nS C O F F'}, 'finish_reason': 'stop'}], 'usage': {'prompt_tokens': 410, 'completion_tokens': 800, 'total_tokens': 1210}}
 
-    #print(response_exm['choices'][0]['message'])
+
     for i in range(5):
         # actions = [r.text for r in (response[i])]
-        actions = []
+        actions_dict = {"h1": [], "h2": [], "h3": [], "h4": [], "h5": []}
+        current_level = ""
+        current_title = None
+
         content = response_exm['choices'][i]['message']['content']
         print(content)
-        print("-----------------------------------")
-        content = content.split("\n")
-        actions.append(content)
+        print('------------------------------------------------------')
+        content = content.split('\n')
+        print(content)
+        # print('------------------------------------------------------')
 
-    return actions
+        for line in content:
+            if line.startswith("h1."):
+                actions_dict["h1"].append(line.strip())
+            elif line.startswith("h2."):
+                actions_dict["h2"].append(line.strip())
+            elif line.startswith("h3."):
+                actions_dict["h3"].append(line.strip())
+            elif line.startswith("h4."):
+                actions_dict["h4"].append(line.strip())
+            elif line.startswith("h5."):
+                actions_dict["h5"].append(line.strip())
+
+
+        for key, value in actions_dict.items():
+            for item in value:
+                print(item)
+    return actions_dict
 
 def main():
     #M_theta = GenerativeLLM()  
@@ -175,7 +195,7 @@ def main():
                             
                         # Expand by applying chosen action
                         next_state = state + chosen_action
-                        if env1.answered(next_state):
+                        if env_crosswords.answered(next_state):
                             break
 
                         history.append(state)
@@ -188,7 +208,7 @@ def main():
 
                 # Backpropagation
                 # 需要backpropagate到history中的每一个state ???
-                reward = env1.reward(next_state)
+                reward = env_crosswords.reward(next_state)
                 update_value(next_state, reward, chosen_action, Q, N_count)
                         
 
@@ -197,7 +217,7 @@ def main():
             state = initial_state
             for n in range(depth_limit):
                 # 判断environment是否finished
-                if env1.answered(state):
+                if env_crosswords.answered(state):
                     break
                 best_action = get_best_action(state)
                 a_star.append(best_action)
@@ -216,6 +236,3 @@ def main():
 if __name__ == "__main__":
     state = ""
     possible_actions(env_crosswords, state)
-
-
-
