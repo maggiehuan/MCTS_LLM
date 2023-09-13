@@ -1,14 +1,14 @@
 import re
 import os
 import json
-from tot.tasks.base import Task, DATA_PATH
-from tot.prompts.crosswords import * 
-from tot.models import gpt
+from src.tot.tasks.base import Task, DATA_PATH
+from src.tot.prompts.crosswords import * 
+from src.tot.models import gpt
 # import openai
 # import torch
 # import torch.optim as optim
 import numpy as np
-from tot.prompts.crosswords import cot_prompt
+from src.tot.prompts.crosswords import cot_prompt
 import copy
 #from tot.models import gpt
 
@@ -25,7 +25,7 @@ class CrosswordsEnv:
         self.times = 0
         self.status = [0] * 10
 
-        self.input_data = self.file[0][0]
+        self.input_data = self.file[5][0]
         #print(self.input_data)
         self.processed_input = self.prompt_input()
 
@@ -35,20 +35,14 @@ class CrosswordsEnv:
         input_data = {  
             "messages": [  
                 {"role": "system", "content": "Solve 5x5 mini crosswords. Given an input of 5 horizontal clues and 5 vertical clues, generate thoughts about which 5-letter word fits each clue, then an output of 5 rows, where each row is 5 letter separated by space."},  
-                {"role": "user", "content": "Input: h1. A lunar valley\nh2. A fatty oil\nh3. To entice\nh4. To lower; to reduce\nh5. A solitary person\n\
-v1. According to the roster\nv2. Another name for Port-Francqui\nv3. An illicit lover; a European lake\nv4. To lisp\nv5. To come in\n\
-Thoughts:\nh1. Presented; revealed: SHOWN\nh2. An interjection expressing sorrow: WIRRA\nh3. Benefit; result: AVAIL\nh4. A cigarette: RETTE\nh5. Chased up a tree: TREED\n\
-v1. Swarthy; tawny: SWART\nv2. An apiarist or bee keeper: HIVER\nv3. To speak formally: ORATE\nv4. To indite; to scribble: WRITE\nv5. An insecticide: NALED\n\
-Output:R I L L E\nO L E I N\nT E M P T\nA B A S E\nL O N E R\n\
-Input: {input}\n{state}".format(input=input, state=state)},
+                {"role": "user", "content": "Input: h1. A lunar valley\nh2. A fatty oil\nh3. To entice\nh4. To lower; to reduce\nh5. A solitary person\nv1. According to the roster\nv2. Another name for Port-Francqui\nv3. An illicit lover; a European lake\nv4. To lisp\nv5. To come in\nThoughts:\nh1. Presented; revealed: SHOWN\nh2. An interjection expressing sorrow: WIRRA\nh3. Benefit; result: AVAIL\nh4. A cigarette: RETTE\nh5. Chased up a tree: TREED\nv1. Swarthy; tawny: SWART\nv2. An apiarist or bee keeper: HIVER\nv3. To speak formally: ORATE\nv4. To indite; to scribble: WRITE\nv5. An insecticide: NALED\nOutput:R I L L E\nO L E I N\nT E M P T\nA B A S E\nL O N E R\nInput: {input}\n{state}".format(input=input, state=state)},
                 #{"role": "user", "content": "Output:"}
             ],  
             "max_tokens": 500,
             "temperature": 0.7,
-            "n":5
+            "n":6,
+            "stop": '\n'
         }
-
-        # append一下state
 
         return input_data
 

@@ -5,10 +5,12 @@ from src.tot.models import gpt
 from src.mcts.crossword_mcts import CrosswordsEnv
 from src.tot.models import gpt
 
+import random
 import os
 import requests
 import json
 import re
+from collections import defaultdict
 
 model = ['gpt-4', 'gpt-4-32k', 'gpt-35-turbo']
 model_choice = "gpt-4-32k"
@@ -19,7 +21,7 @@ prompt_path = "/home/ziyu/code/LLMs/mcts-llm/src/tot/data/crosswords/mini0505.js
 
 
 input = json.load(open(prompt_path))
-input = input[0][0] # 循环的i改在第一个框内
+input = input[5][0] # 循环的i改在第一个框内
 
 env_crosswords = CrosswordsEnv(prompt_path)
 # input = env_crosswords.prompt_input()
@@ -100,39 +102,60 @@ def PUCT(Q, N, t, c=1.0):
 def possible_actions(env, state):
     response = requests.post(API_ENDPOINT, json=env.get_input_data(state), headers=headers)
     response_exm = response.json()
+    # print(response.json())
+    unique_actions = []
+    num_actions = 0
+    # TODO 这里需要删掉所有的/r和/n, 然后把相同的句子分类 done
+    for i in range(6):
+        content = response_exm['choices'][i]['message']['content']
+        content = content.split('\n')
+        if content[0] not in unique_actions:
+            #unique_actions.append(content)
+            unique_actions = content + unique_actions
+            num_actions += 1
+        # print(content)
+    print(unique_actions)
+    return unique_actions, num_actions
+    #content = response_exm['choices'][i]['message']['content']
+
+    # unique_actions = []
+    # unique_actions = defaultdict(content)
+    #print(unique_actions)
+    # for i, content in enumerate(unique_actions):
+    #     print(content)
     
     # actions = []
-    # print(response.json())
+    #print(response.json())
     #response_exm = {'id': 'chatcmpl-7vgfmUUFqFgezspU4okLbr00iM71w', 'object': 'chat.completion', 'created': 1693983086, 'model': 'gpt-4-32k', 'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': 'h1. An agendum; something to be done: TASKS\nh2. An engine: MOTOR\nh3. Pretentious; flowery: FANCY\nh4. A salon; a hall: PARLOR\nh5. To mock; to sneer: SCOFF\n\nv1. To heap: STACK\nv2. An Indian antelope: NILGAI\nv3. To intend; to plan; to devise; a nettle; to guess: MEANT\nv4. A nozzle: SPOUT\nv5. Desiccator; more dry: DRIER\n\nOutput: T A S K S\nM O T O R\nF A N C Y\nP A R L O R\nS C O F F'}, 'finish_reason': 'stop'}, {'index': 1, 'message': {'role': 'assistant', 'content': 'h1. An agendum; something to be done: TASKS\nh2. An engine: MOTOR\nh3. Pretentious; flowery: FANCY\nh4. A salon; a hall: PARLOR\nh5. To mock; to sneer: SCOFF\n\nv1. To heap: PILE\nv2. An Indian antelope: NILGAI\nv3. To intend; to plan; to devise; a nettle; to guess: MEANT\nv4. A nozzle: SPOUT\nv5. Desiccator; more dry: DRIER\n\nOutput: T A S K S\nM O T O R\nF A N C Y\nP A R L O R\nS C O F F'}, 'finish_reason': 'stop'}, {'index': 2, 'message': {'role': 'assistant', 'content': 'h1. An agendum; something to be done: TASKS\r\nh2. An engine: MOTOR\r\nh3. Pretentious; flowery: FANCY\r\nh4. A salon; a hall: LOBBY\r\nh5. To mock; to sneer: SCOFF\r\nv1. To heap: PILET\r\nv2. An Indian antelope: NILGA\r\nv3. To intend; to plan; to devise; a nettle; to guess: MEANT\r\nv4. A nozzle: SPOUT\r\nv5. Desiccator; more dry: DRIER\r\nOutput:\r\nT A S K S\r\nM O T O R\r\nF A N C Y\r\nL O B B Y\r\nS C O F F'}, 'finish_reason': 'stop'}, {'index': 3, 'message': {'role': 'assistant', 'content': 'h1. An agendum; something to be done: TASKS\r\nh2. An engine: MOTOR\r\nh3. Pretentious; flowery: FANCY\r\nh4. A salon; a hall: FOYER\r\nh5. To mock; to sneer: SCOFF\r\nv1. To heap: STACK\r\nv2. An Indian antelope: NILGA\r\nv3. To intend; to plan; to devise; a nettle; to guess: MEANT\r\nv4. A nozzle: SPOUT\r\nv5. Desiccator; more dry: DRIER\r\nOutput: T A S K S\r\nM O T O R\r\nF A N C Y\r\nF O Y E R\r\nS C O F F'}, 'finish_reason': 'stop'}, {'index': 4, 'message': {'role': 'assistant', 'content': 'h1. An agendum; something to be done: TASKS\r\nh2. An engine: MOTOR\r\nh3. Pretentious; flowery: FANCY\r\nh4. A salon; a hall: PARLOR\r\nh5. To mock; to sneer: SCOFF\r\n\r\nv1. To heap: PILE\r\nv2. An Indian antelope: NILGAI\r\nv3. To intend; to plan; to devise; a nettle; to guess: MEANT\r\nv4. A nozzle: SPOUT\r\nv5. Desiccator; more dry: DRIER\r\n\r\nOutput:\r\nT A S K S\r\nM O T O R\r\nF A N C Y\r\nP A R L O R\r\nS C O F F'}, 'finish_reason': 'stop'}], 'usage': {'prompt_tokens': 410, 'completion_tokens': 800, 'total_tokens': 1210}}
-    actions_dict = {"h1": [], "h2": [], "h3": [], "h4": [], "h5": []}
+    # actions_dict = {"h1": [], "h2": [], "h3": [], "h4": [], "h5": []}
 
-    for i in range(5):
+    #for i in range(5):
         # actions = [r.text for r in (response[i])]
         #actions_dict = {"h1": [], "h2": [], "h3": [], "h4": [], "h5": []}
         # action_dict = []
-        content = response_exm['choices'][i]['message']['content']
+        #content = response_exm['choices'][i]['message']['content']
         # print(content)
         # print('------------------------------------------------------')
-        content = content.split('\n')
+        #content = content.split('\n')
         # print(content)
 
-        for line in content:
-            if line.startswith("h1."):
-                #action_dict.append(line.strip())
-                actions_dict["h1"].append(line.strip())
-            elif line.startswith("h2."):
-                #action_dict.append(line.strip())
-                actions_dict["h2"].append(line.strip())
-            elif line.startswith("h3."):
-                #action_dict.append(line.strip())
-                actions_dict["h3"].append(line.strip())
-            elif line.startswith("h4."):
-                #action_dict.append(line.strip())
-                actions_dict["h4"].append(line.strip())
-            elif line.startswith("h5."):
-                #action_dict.append(line.strip())
-                actions_dict["h5"].append(line.strip())
-        #print(actions_dict)
+        # for line in content:
+        #     if line.startswith("h1."):
+        #         #action_dict.append(line.strip())
+        #         actions_dict["h1"].append(line.strip())
+        #     elif line.startswith("h2."):
+        #         #action_dict.append(line.strip())
+        #         actions_dict["h2"].append(line.strip())
+        #     elif line.startswith("h3."):
+        #         #action_dict.append(line.strip())
+        #         actions_dict["h3"].append(line.strip())
+        #     elif line.startswith("h4."):
+        #         #action_dict.append(line.strip())
+        #         actions_dict["h4"].append(line.strip())
+        #     elif line.startswith("h5."):
+        #         #action_dict.append(line.strip())
+        #         actions_dict["h5"].append(line.strip())
+        # #print(actions_dict)
 
 
 
@@ -143,92 +166,82 @@ def possible_actions(env, state):
     #         #print(f'{key}:')
     #         for item in actions_dict[key]:
     #             print(item)
-    for key, value in actions_dict.items():
-        for item in actions_dict[key]:
-            print(item)
-    return actions_dict
+    # for key, value in actions_dict.items():
+    #     for item in actions_dict[key]:
+    #         print(item)
+    # return actions_dict
+
 
 def main():
-    # M_theta = GenerativeLLM()  
-    # optimizer = optim.Adam(M_theta.parameters(), lr=0.001)
-    # initial_state = env_crosswords.prompt()
-    # reward = 0.0
-    # N = 10  # Number of rollouts
-    # depth = 3  # Depth of exploration
-    # depth_limit = 5  # Depth limit
-    # iterations = 10  # Training iterations
-    # T = 5
+#     # M_theta = GenerativeLLM()  
+#     # optimizer = optim.Adam(M_theta.parameters(), lr=0.001)
+    initial_state = env_crosswords.get_input_data()
+    reward = 0.0
+    N = 10  # Number of rollouts
+    depth = 3  # Depth of exploration
+    depth_limit = 5  # Depth limit
+    iterations = 10  # Training iterations
+    T = 5
 
     state_set = set()
     tree = {}
 
     while True:
-        # 如果当前状态不在集合中，将其添加到集合中
         if state not in state_set:
             state_set.add(state)
 
         rewards = []
 
-        # 针对每个动作
-        for value in possible_actions(env_crosswords, state).items():
-            for item in value:
-                print(item)
+        for i in possible_actions(env_crosswords, state).count:
             
             current_chain = []
 
-            # 将每个答案拆分成一句一句的话，并加入当前链
-            for sentence in act.split('. '):
-                current_chain.append(sentence)
+            unique_actions = []
+            unique_actions[i] = possible_actions(env_crosswords, state)[i]
 
-                # 构建树结构
+            # TODO 需要把生成过的unique action append到state里面？confused
+
+            # 加到tree的chain里面 -> confused either
+            if unique_actions[i] not in current_chain:
+                current_chain.append(unique_actions[i])
+
                 if state not in tree:
                     tree[state] = []
-
-                # 将当前链作为当前状态的动作添加到树中
+                
                 tree[state].append(current_chain.copy())
-
-            # 循环每个答案的每个状态
+  
             for current_state in state_set:
-                # 使用reward更新当前状态下的Q和V
-
+                update_value(current_state, rewards)
 
                 new_chains = possible_actions(env_crosswords, current_state)
 
-                # 将生成的5个chain加入树中
                 if current_state not in tree:
                     tree[current_state] = []
 
                 tree[current_state].extend(new_chains)
 
-                # 计算reward并更新value
                 reward = env_crosswords.reward(current_state)
                 rewards.append(reward)
 
 
-        # 更新当前状态下的Q和V
+        # Q,V
         update_value(state, rewards)
 
-
-        # 检查是否需要终止循环
+        
         if env_crosswords.answered():
             break
     
-        if state in state_set
-            actions = state_action_dict[current_state]
+        if state in state_set:
+            actions = [current_state]
             
-            # 选择最佳动作
             best_action = get_best_action(Q, N, current_state)
             
-            # 执行动作并更新状态
-            new_state = take_action(current_state, best_action)
+            new_state = state + best_action
             
             if new_state is None:
-                # 已回答完问题，退出循环
                 break
         
-    # 更新Q,N
     update_value(state, reward, best_action, Q, N)
-    # 更新当前状态
     current_state = new_state
 
 
