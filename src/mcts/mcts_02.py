@@ -248,138 +248,138 @@ if __name__ == "__main__":
 
 
 
-class TreeNode:
-    def __init__(self, state):
-        self.state = state
-        #self.actions = []
-        self.Q = 0  # 动作的Q值
-        self.N = 0  # 动作的访问次数
+# class TreeNode:
+#     def __init__(self, state):
+#         self.state = state
+#         #self.actions = []
+#         self.Q = 0  # 动作的Q值
+#         self.N = 0  # 动作的访问次数
 
 
-def main():
-    root = TreeNode("Initial State") 
+# def main():
+#     root = TreeNode("Initial State") 
      
 
-    while True:
-        if not root.actions:
-            state = root.state
-            actions = possible_actions(env_crosswords, state)
+#     while True:
+#         if not root.actions:
+#             state = root.state
+#             actions = possible_actions(env_crosswords, state)
 
-        selected_action = random.choice(actions)
+#         selected_action = random.choice(actions)
 
-        reward = env_crosswords.reward(selected_action)
+#         reward = env_crosswords.reward(selected_action)
 
-        # 更新Q值和N值
-        root.Q += reward
-        root.N += 1
+#         # 更新Q值和N值
+#         root.Q += reward
+#         root.N += 1
 
-        # 如果满足终止条件，退出循环
-        if env_crosswords.answered():
-            break
+#         # 如果满足终止条件，退出循环
+#         if env_crosswords.answered():
+#             break
     
-def main():
-#     # M_theta = GenerativeLLM()  
-#     # optimizer = optim.Adam(M_theta.parameters(), lr=0.001)
-    initial_state = env_crosswords.get_input_data()
-    reward = 0.0
-    N = 10  # Number of rollouts
-    depth = 3  # Depth of exploration
-    depth_limit = 5  # Depth limit
-    iterations = 10  # Training iterations
-    T = 5
+# def main():
+# #     # M_theta = GenerativeLLM()  
+# #     # optimizer = optim.Adam(M_theta.parameters(), lr=0.001)
+#     initial_state = env_crosswords.get_input_data()
+#     reward = 0.0
+#     N = 10  # Number of rollouts
+#     depth = 3  # Depth of exploration
+#     depth_limit = 5  # Depth limit
+#     iterations = 10  # Training iterations
+#     T = 5
 
-    state_set = set()
-    tree = {}
+#     state_set = set()
+#     tree = {}
 
-    while True:
-        # 如果当前状态不在集合中，添加到集合中
-        if state in state_set:
-            visited_states.append(root_state)
+#     while True:
+#         # 如果当前状态不在集合中，添加到集合中
+#         if state in state_set:
+#             visited_states.append(root_state)
 
-            # 从字典中找到当前状态下的所有可能操作
-            possible_actions = state_to_possible_actions.get(root_state, [])
+#             # 从字典中找到当前状态下的所有可能操作
+#             possible_actions = state_to_possible_actions.get(root_state, [])
 
-            # 选一个最佳操作（根据Q和N）
-            best_action = select_best_action(possible_actions, Q, N)  # 自行实现
+#             # 选一个最佳操作（根据Q和N）
+#             best_action = select_best_action(possible_actions, Q, N)  # 自行实现
 
-        # 如果没有可用操作，退出循环
-        if not best_action:
-            break
+#         # 如果没有可用操作，退出循环
+#         if not best_action:
+#             break
 
-        # 走到最佳操作对应的子节点并更新状态
-        new_state = update_state(root_state, best_action)  # 更新状态
-        root_state = new_state  # 更新当前状态
+#         # 走到最佳操作对应的子节点并更新状态
+#         new_state = update_state(root_state, best_action)  # 更新状态
+#         root_state = new_state  # 更新当前状态
 
-    # # 在回退时添加最后一次访问
-    # visited_states.append(root_state)
+#     # # 在回退时添加最后一次访问
+#     # visited_states.append(root_state)
 
-    #     # 打印经过的状态
-    # for state in visited_states:
-    #     print(state)
+#     #     # 打印经过的状态
+#     # for state in visited_states:
+#     #     print(state)
 
-    # # 打印回溯信息
-    # for state, action in backtracking_stack:
-    #     print(f"Backtracking: State = {state}, Action = {action}")
+#     # # 打印回溯信息
+#     # for state, action in backtracking_stack:
+#     #     print(f"Backtracking: State = {state}, Action = {action}")
 
 
-        if state not in state_set:
-            state_set.add(state)
+#         if state not in state_set:
+#             state_set.add(state)
 
-        rewards = []
+#         rewards = []
 
-        for i in possible_actions(env_crosswords, state).count:
+#         for i in possible_actions(env_crosswords, state).count:
             
-            current_chain = []
+#             current_chain = []
 
-            unique_actions = []
-            unique_actions[i] = possible_actions(env_crosswords, state)[i]
+#             unique_actions = []
+#             unique_actions[i] = possible_actions(env_crosswords, state)[i]
 
-            # TODO 需要把生成过的unique action append到state里面？confused
+#             # TODO 需要把生成过的unique action append到state里面？confused
 
-            # 加到tree的chain里面 -> confused either
-            if unique_actions[i] not in current_chain:
-                current_chain.append(unique_actions[i])
+#             # 加到tree的chain里面 -> confused either
+#             if unique_actions[i] not in current_chain:
+#                 current_chain.append(unique_actions[i])
 
-                if state not in tree:
-                    tree[state] = []
+#                 if state not in tree:
+#                     tree[state] = []
                 
-                tree[state].append(current_chain.copy())
+#                 tree[state].append(current_chain.copy())
   
-            # 循环每个答案的每个状态
-            for current_state in state_set:
-                update_value(current_state, rewards)
+#             # 循环每个答案的每个状态
+#             for current_state in state_set:
+#                 update_value(current_state, rewards)
 
-                new_chains = possible_actions(env_crosswords, current_state)
+#                 new_chains = possible_actions(env_crosswords, current_state)
 
-                # 将生成的5个chain加入树中
-                if current_state not in tree:
-                    tree[current_state] = []
+#                 # 将生成的5个chain加入树中
+#                 if current_state not in tree:
+#                     tree[current_state] = []
 
-                tree[current_state].extend(new_chains)
+#                 tree[current_state].extend(new_chains)
 
-                # 计算reward并更新value
-                reward = env_crosswords.reward(current_state)
-                rewards.append(reward)
+#                 # 计算reward并更新value
+#                 reward = env_crosswords.reward(current_state)
+#                 rewards.append(reward)
 
 
-        # 更新当前状态下的Q和V
-        update_value(state, rewards)
+#         # 更新当前状态下的Q和V
+#         update_value(state, rewards)
 
-        # 检查是否需要终止循环
-        if env_crosswords.answered():
-            break
+#         # 检查是否需要终止循环
+#         if env_crosswords.answered():
+#             break
     
-        if state in state_set:
-            actions = [current_state]
+#         if state in state_set:
+#             actions = [current_state]
             
-            # 选择最佳动作
-            best_action = get_best_action(Q, N, current_state)
+#             # 选择最佳动作
+#             best_action = get_best_action(Q, N, current_state)
             
-            # 执行动作并更新状态
-            new_state = take_action(current_state, best_action)
+#             # 执行动作并更新状态
+#             new_state = take_action(current_state, best_action)
             
-            if new_state is None:
-                break
+#             if new_state is None:
+#                 break
         
-    update_value(state, reward, best_action, Q, N)
-    current_state = new_state
+#     update_value(state, reward, best_action, Q, N)
+#     current_state = new_state
