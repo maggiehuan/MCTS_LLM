@@ -8,70 +8,67 @@ from src.tot.models import gpt
 # import torch
 # import torch.optim as optim
 import numpy as np
-from src.tot.prompts.crosswords import cot_prompt
+from src.tot.prompts.crosswords import cot_prompt, chat_cot_prompt_small
 import copy
 #from tot.models import gpt
 
 class CrosswordsEnv:
 
-    def __init__(self, file):
-        DATA_PATH = '/home/ziyu/code/LLMs/mcts-llm/src/tot/data/crosswords/mini0505.json'
-        self.file = os.path.join(DATA_PATH, 'crosswords', file)
+    def __init__(self, file="../tot/data/crosswords/mini0505.json"):
+        # DATA_PATH = '/home/ziyu/code/LLMs/mcts-llm/src/tot/data/crosswords/mini0505.json'
+        # self.file = os.path.join(DATA_PATH, 'crosswords', file)
+        self.file = file
         self.file = json.load(open(self.file))
-        self.n = len(self.file)
-        self.idx = 0
-        self.data = None
-        self.board_gt = None
-        self.times = 0
-        self.status = [0] * 10
+        self.task_num = len(self.file)
 
-        self.input_data = self.file[5][0]
-        #print(self.input_data)
-        self.processed_input = self.prompt_input()
+        self.task_inputs = [data[0] for data in self.file]
+        self.task_answers = [data[1] for data in self.file]
 
-    def get_input_data(self, state):
-        input = self.prompt_input()
+    def reset_random(self):
+        self.task_id = np.random.randint(0, self.task_num)
+        self.current_input = self.task_inputs[self.task_id]
+        self.current_answer = self.task_answers[self.task_id]
 
+    def reset(self, task_id): 
+        self.task_id = task_id 
+        self.current_input = self.task_inputs[self.task_id]
+        self.current_answer = self.task_answers[self.task_id]
+
+    def get_input_data(self, state, num=5, stop_endline=True):
+        # old_prompt = "Input: h1. A lunar valley\nh2. A fatty oil\nh3. To entice\nh4. To lower; to reduce\nh5. A solitary person\nv1. According to the roster\nv2. Another name for Port-Francqui\nv3. An illicit lover; a European lake\nv4. To lisp\nv5. To come in\nThoughts:\nh1. Presented; revealed: SHOWN\nh2. An interjection expressing sorrow: WIRRA\nh3. Benefit; result: AVAIL\nh4. A cigarette: RETTE\nh5. Chased up a tree: TREED\nv1. Swarthy; tawny: SWART\nv2. An apiarist or bee keeper: HIVER\nv3. To speak formally: ORATE\nv4. To indite; to scribble: WRITE\nv5. An insecticide: NALED\nOutput:R I L L E\nO L E I N\nT E M P T\nA B A S E\nL O N E R\nInput: {input}\n{state}"
         input_data = {  
             "messages": [  
-                {"role": "system", "content": "Solve 5x5 mini crosswords. Given an input of 5 horizontal clues and 5 vertical clues, generate thoughts about which 5-letter word fits each clue, then an output of 5 rows, where each row is 5 letter separated by space."},  
-                {"role": "user", "content": "Input: h1. A lunar valley\nh2. A fatty oil\nh3. To entice\nh4. To lower; to reduce\nh5. A solitary person\nv1. According to the roster\nv2. Another name for Port-Francqui\nv3. An illicit lover; a European lake\nv4. To lisp\nv5. To come in\nThoughts:\nh1. Presented; revealed: SHOWN\nh2. An interjection expressing sorrow: WIRRA\nh3. Benefit; result: AVAIL\nh4. A cigarette: RETTE\nh5. Chased up a tree: TREED\nv1. Swarthy; tawny: SWART\nv2. An apiarist or bee keeper: HIVER\nv3. To speak formally: ORATE\nv4. To indite; to scribble: WRITE\nv5. An insecticide: NALED\nOutput:R I L L E\nO L E I N\nT E M P T\nA B A S E\nL O N E R\nInput: {input}\n{state}".format(input=input, state=state)},
+                {"role": "system", "content": "You are a clever AI Assistant which carefully follow the instruction to solve the problem."},  
+                {"role": "user", "content": self.get_whole_prompt(state=state)},
                 #{"role": "user", "content": "Output:"}
             ],  
             "max_tokens": 500,
             "temperature": 0.7,
-            "n":6,
-            "stop": '\n'
+            "n":num,
+            "stop": '\n' if stop_endline else []
         }
 
         return input_data
+    
+    def get_whole_prompt(self, state=''):
+        input = self.get_input()
+        return chat_cot_prompt_small.format(input=input, state=state)
 
-    def prompt_input(self):
+    def get_input(self):
         section = ""
-        for i, item in enumerate(self.input_data):
+        for i, item in enumerate(self.current_input):
             #section += f"h{i + 1}. {{}}".format(item)
             if i < 5:
-                section += f"h{i + 1}. {item}: \n"
+                section += f"h{i + 1}. {item}\n"
             else:
-                section += f"v{i - 4}. {item}: \n"
+                section += f"v{i - 4}. {item}\n"
             #section += cot_prompt_format.format(input=section)
         section += "Thoughts:"
         #print(section)
         return section
 
     def __len__(self): # question
-        return self.n
-
-    def prompt(self):
-        print(cot_prompt_format.format(input=self.input_data))
-        return cot_prompt.format(input=self.input_data) 
-        
-
-    def reset(self, idx): 
-        self.idx = idx 
-        self.data = self.file[idx][1] 
-        self.board_gt = self.file[idx] 
-        print(self.data)
+        return self.task_num
 
     def reward(self, output: str):
         output = output.split('Output:\n')[-1]
@@ -84,12 +81,12 @@ class CrosswordsEnv:
 
         for i in range(0, len(letters), 5):
             # print(letters[i:i+5])
-            if letters[i:i+5] == self.data[i:i+5]:
+            if letters[i:i+5] == self.task_answers[i:i+5]:
                 reward_letter += 1
         reward_letter = reward_letter / 5
 
         for i in range(25):
-            if letters[i] == self.data[i]:
+            if letters[i] == self.task_answers[i]:
                 reward_w += 1
         reward = reward_w / 25
 

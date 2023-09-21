@@ -141,6 +141,42 @@ Input:
 {input}
 '''
 
+chat_cot_prompt_small = """
+Solve 5x5 mini crosswords. Given an input of 5 horizontal clues and 5 vertical clues, generate thoughts about which 5-letter word fits each clue, then an output of 5 rows, where each row is 5 letter separated by space.
+
+Input:
+h1. Presented; revealed
+h2. An interjection expressing sorrow
+h3. Benefit; result
+h4. A cigarette
+h5. Chased up a tree
+v1. Swarthy; tawny
+v2. An apiarist or bee keeper
+v3. To speak formally
+v4. To indite; to scribble
+v5. An insecticide
+Thoughts:
+h1. Presented; revealed: SHOWN
+h2. An interjection expressing sorrow: WIRRA
+h3. Benefit; result: AVAIL
+h4. A cigarette: RETTE
+h5. Chased up a tree: TREED
+v1. Swarthy; tawny: SWART
+v2. An apiarist or bee keeper: HIVER
+v3. To speak formally: ORATE
+v4. To indite; to scribble: WRITE
+v5. An insecticide: NALED
+Output:
+S H O W N
+W I R R A
+A V A I L
+R E T T E
+T R E E D
+Input:
+{input}
+{state}
+"""
+
 cot_prompt = '''\nSolve 5x5 mini crosswords. Given an input of 5 horizontal clues and 5 vertical clues, generate thoughts about which 5-letter word fits each clue, then an output of 5 rows, where each row is 5 letter separated by space.
 
 Input:
