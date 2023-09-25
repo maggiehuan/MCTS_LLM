@@ -13,13 +13,13 @@ import copy
 #from tot.models import gpt
 
 class CrosswordsEnv:
-
-    def __init__(self, file="../tot/data/crosswords/mini0505.json"):
+    def __init__(self, file="../tot/data/crosswords/mini0505.json", reward_type='reward_rule'):
         # DATA_PATH = '/home/ziyu/code/LLMs/mcts-llm/src/tot/data/crosswords/mini0505.json'
         # self.file = os.path.join(DATA_PATH, 'crosswords', file)
         self.file = file
         self.file = json.load(open(self.file))
         self.task_num = len(self.file)
+        self.reward_type = reward_type
 
         self.task_inputs = [data[0] for data in self.file]
         self.task_answers = [data[1] for data in self.file]
@@ -75,22 +75,26 @@ class CrosswordsEnv:
         letters = []
         for i, line in enumerate(output.strip().split('\n')[-5:], 1):
             letters.extend(line.split(' ')[:5])
-        reward_w = 0
         reward_letter = 0
+        reward_word = 0
         print(letters)
 
         for i in range(0, len(letters), 5):
             # print(letters[i:i+5])
-            if letters[i:i+5] == self.task_answers[i:i+5]:
-                reward_letter += 1
-        reward_letter = reward_letter / 5
+            if letters[i:i+5] == self.current_answer[i:i+5]:
+                reward_word += 1
+        for i in range(5):
+            if letters[i:25:5] == self.current_answer[i:25:5]:
+                reward_word += 1
+        reward_word = reward_word / 10
 
         for i in range(25):
-            if letters[i] == self.task_answers[i]:
-                reward_w += 1
-        reward = reward_w / 25
+            if letters[i] == self.current_answer[i]:
+                reward_letter += 1
+        reward_letter = reward_letter / 25
 
-        return reward, reward_letter
+        reward_map = {'reward_letter': reward_letter, 'reward_word': reward_word, 'reward_rule': reward_letter}
+        return reward_map[self.reward_type]
 
     def answered(self, output: str):
         if output == "Output:\n":
