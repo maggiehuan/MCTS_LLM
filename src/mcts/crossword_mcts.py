@@ -20,6 +20,7 @@ class CrosswordsEnv:
         self.file = json.load(open(self.file))
         self.task_num = len(self.file)
         self.reward_type = reward_type
+        self.env_name = 'crosswords'
 
         self.task_inputs = [data[0] for data in self.file]
         self.task_answers = [data[1] for data in self.file]
@@ -79,7 +80,7 @@ class CrosswordsEnv:
             letters.extend(letters_line)
         reward_letter = 0
         reward_word = 0
-        print(letters)
+        # print(letters)
 
         for i in range(0, len(letters), 5):
             # print(letters[i:i+5])
@@ -99,7 +100,7 @@ class CrosswordsEnv:
         return reward_map[self.reward_type]
 
     def answered(self, output: str):
-        if output == "Output:\n":
+        if "Output:\n" in output:
             if len(output.split('Output:\n')[-1].split('\n')) == 5:
                 return True
         else:
