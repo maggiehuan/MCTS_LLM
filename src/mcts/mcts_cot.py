@@ -319,9 +319,8 @@ def cot_mcts(model, tokenizer, env: CrosswordsEnv, validation_env: CrosswordsEnv
             # Reset environment to random task
             env.reset_random()
             whole_prompt = env.get_whole_prompt()
-            for i in range(Hyperparams.data_num_per_training):
-                generation = rollout_once(model, tokenizer, env, iteration)
-            
+            generation = rollout_once(model, tokenizer, env, iteration)
+        
             with open(f'{text_file_path}/data-{dataset_idx}.txt', 'w') as file:
                 file.write(whole_prompt + generation)
                 
