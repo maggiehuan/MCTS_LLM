@@ -74,7 +74,9 @@ class CrosswordsEnv:
         output = output.split('Output:\n')[-1]
         letters = []
         for i, line in enumerate(output.strip().split('\n')[-5:], 1):
-            letters.extend(line.split(' ')[:5])
+            letters_line = line.split(' ')[:5]
+            letters_line += [' '] * (5 - len(letters_line))
+            letters.extend(letters_line)
         reward_letter = 0
         reward_word = 0
         print(letters)

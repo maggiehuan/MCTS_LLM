@@ -42,7 +42,7 @@ def get_possible_actions_gpt(env: CrosswordsEnv, state):
         if 'error' in response_data:
             message = response_data['error']['message']
             print(message)
-            sleep_time = re.findall(r'Please retry after (\w+) seconds', message)[0]
+            sleep_time = re.findall(r'Please retry after (\w+) second', message)[0]
             time.sleep(int(sleep_time) + 1.0)
         else:
             break
@@ -68,10 +68,18 @@ def get_possible_actions_gpt(env: CrosswordsEnv, state):
     # return unique_actions, num_actions
 
 def generate_full(env: CrosswordsEnv, state):
-    response = requests.post(API_ENDPOINT, 
-                             json=env.get_input_data(state, num=1, stop_endline=False), 
-                             headers=headers)
-    response_data = response.json()
+    while True:
+        response = requests.post(API_ENDPOINT, 
+                                json=env.get_input_data(state, num=1, stop_endline=False), 
+                                headers=headers)
+        response_data = response.json()
+        if 'error' in response_data:
+            message = response_data['error']['message']
+            print(message)
+            sleep_time = re.findall(r'Please retry after (\w+) second', message)[0]
+            time.sleep(int(sleep_time) + 1.0)
+        else:
+            break
     
     # with open('data.json', 'w') as f:
     #     json.dump(response_data, f)
@@ -98,9 +106,7 @@ def update_value(Q, N, history_state_list, history_action_list, reward):
 
 def mcts_construction(model, env: CrosswordsEnv, initial_state: str):
     # Construct a MCTS at state = initial_state
-    
-    breakpoint()
-    
+        
     Q, N, action_map = {}, {}, {}
 
     for rollout_idx in range(Hyperparams.rollout_num):
@@ -154,10 +160,12 @@ def mcts_construction(model, env: CrosswordsEnv, initial_state: str):
                 else:
                     generation = generate_full(env, next_state)
                     final_state = next_state + generation + '\n'
+                print(final_state)
                 reward = env.reward(final_state)
-
+                print(f'get an answer with reward {reward}')
+                
                 # Update value
-                update_value(Q, N, history_action_list + [current_state], 
+                update_value(Q, N, history_state_list + [current_state], 
                              history_action_list + [action], reward)
     
     # Finally, find the current best action. 
@@ -172,6 +180,8 @@ def rollout_once(model, env: CrosswordsEnv):
         current_state = current_state + best_action + '\n'
         if env.answered(current_state):
             break
+    
+    print('full generation:', current_state)
     
     return current_state
 
