@@ -232,7 +232,7 @@ def mcts_construction(model, tokenizer, env: CrosswordsEnv, initial_state: str, 
                              history_action_list + [action], reward)
     
     # Finally, find the current best action. 
-    best_action = selection(Q, N, initial_state, action_map[initial_state])
+    best_action = selection(Q, N, initial_state, action_map[initial_state], c=0.0)
     return best_action
 
 def rollout_once(model, tokenizer, env: CrosswordsEnv, iteration):

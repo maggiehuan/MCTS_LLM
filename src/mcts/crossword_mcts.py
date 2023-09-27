@@ -71,13 +71,18 @@ class CrosswordsEnv:
     def __len__(self): # question
         return self.task_num
 
-    def reward(self, output: str):
-        output = output.split('Output:\n')[-1]
+    def reward(self, output_raw: str):
+        output = output_raw.split('Output:\n')[-1]
         letters = []
         for i, line in enumerate(output.strip().split('\n')[-5:], 1):
             letters_line = line.split(' ')[:5]
             letters_line += [' '] * (5 - len(letters_line))
             letters.extend(letters_line)
+        
+        if len(letters) != 25 or len(self.current_answer) != 25:
+            print('error here')
+            from IPython import embed; embed()
+        
         reward_letter = 0
         reward_word = 0
         # print(letters)
@@ -101,7 +106,7 @@ class CrosswordsEnv:
 
     def answered(self, output: str):
         if "Output:\n" in output:
-            if len(output.split('Output:\n')[-1].split('\n')) == 5:
+            if len(output.strip().split('Output:\n')[-1].split('\n')) == 5:
                 return True
         else:
             return False
