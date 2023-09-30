@@ -95,8 +95,13 @@ def get_possible_actions_llama2(model, tokenizer, env: CrosswordsEnv, state):
 
 def get_possible_actions_gpt(env: CrosswordsEnv, state):
     while True:
-        response = requests.post(API_ENDPOINT, json=env.get_input_data(state, num=Hyperparams.num_different_action), headers=headers)
-        response_data = response.json()
+        try:
+            response = requests.post(API_ENDPOINT, 
+                json=env.get_input_data(state, num=Hyperparams.num_different_action), 
+                headers=headers, timeout=30)
+            response_data = response.json()
+        except:
+            continue
         if 'error' in response_data:
             message = response_data['error']['message']
             # print(message)
