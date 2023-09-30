@@ -80,7 +80,6 @@ parser = HfArgumentParser(ScriptArguments)
 script_args = parser.parse_args_into_dataclasses()[0]
 
 def get_possible_actions_llama2(model, tokenizer, env: CrosswordsEnv, state):
-    breakpoint()
     whole_prompt = env.get_whole_prompt(state)
     inputs = tokenizer(whole_prompt, return_tensors="pt").to(f'cuda:{script_args.gpu_id}')
     
@@ -130,7 +129,7 @@ def generate_full(env: CrosswordsEnv, state):
     while True:
         response = requests.post(API_ENDPOINT, 
                                 json=env.get_input_data(state, num=1, stop_endline=False), 
-                                headers=headers)
+                                headers=headers, timeout=30)
         response_data = response.json()
         if 'error' in response_data:
             message = response_data['error']['message']
@@ -172,8 +171,8 @@ def mcts_construction(model, tokenizer, env: CrosswordsEnv, initial_state: str, 
 
     for rollout_idx in range(Hyperparams.rollout_num):
         # If there is only one possible action at current state, then stop searching. 
-        if initial_state in action_map and len(action_map[initial_state]) == 1:
-            break
+        # if initial_state in action_map and len(action_map[initial_state]) == 1:
+        #     break
 
         current_state = initial_state
         history_state_list, history_action_list = [], []
@@ -232,8 +231,15 @@ def mcts_construction(model, tokenizer, env: CrosswordsEnv, initial_state: str, 
                              history_action_list + [action], reward)
     
     # Finally, find the current best action. 
-    best_action = selection(Q, N, initial_state, action_map[initial_state], c=0.0)
-    return best_action
+    best_action_sequence = ''
+    current_state = initial_state
+    while True:
+        if current_state not in action_map:
+            break
+        best_action = selection(Q, N, current_state, action_map[current_state], c=0.0)
+        best_action_sequence = best_action_sequence + best_action + '\n'
+        current_state = current_state + best_action + '\n'
+    return best_action_sequence
 
 def rollout_once(model, tokenizer, env: CrosswordsEnv, iteration):
     current_state = ''
@@ -241,8 +247,8 @@ def rollout_once(model, tokenizer, env: CrosswordsEnv, iteration):
     start = time.time()
     for depth in range(Hyperparams.depth_limit):
         best_action = mcts_construction(model, tokenizer, env, current_state, iteration)
-        print(f'In rollout, action "{best_action}" is generated')
-        current_state = current_state + best_action + '\n'
+        print(f'In rollout, action """{best_action}""" is generated')
+        current_state = current_state + best_action
         if env.answered(current_state):
             break
     
@@ -298,19 +304,22 @@ def finetune_llama2(model, iteration, env_name):
 
 def evaluate_model(model, tokenizer, validation_env: CrosswordsEnv):
     reward_tasks = []
-    for task_id in range(len(validation_env)):
+    validation_max_len = 10
+    validation_length = min(validation_max_len, len(validation_env))
+    for task_id in range(validation_length):
         validation_env.reset(task_id)
         generation = rollout_once(model, tokenizer, validation_env, iteration=Hyperparams.train_iterations)
         reward = validation_env.reward(generation)
         reward_tasks.append(reward)
-    mean_reward = np.mean(reward_tasks)
-    return mean_reward
+    return reward_tasks
 
 def cot_mcts(model, tokenizer, env: CrosswordsEnv, validation_env: CrosswordsEnv):
     # The main generation and training loop for one environment. 
     # TODO: implement other tasks than crossword
 
     # TODO: optional behavior cloning training for Llama2.
+    
+    performance_list = []
     
     for iteration in range(Hyperparams.train_iterations):
         text_file_path = f'saved_generation/{env.env_name}/iteration-{iteration}'
@@ -329,8 +338,12 @@ def cot_mcts(model, tokenizer, env: CrosswordsEnv, validation_env: CrosswordsEnv
 
         # Evaluate finetuned Llama2 on validation tasks
         performance = evaluate_model(model, tokenizer, validation_env)
+        performance_list.append(performance)
         
         print(f'Performance in iteration {iteration}:', performance)
+    
+    with open(f'saved_generation/{env.env_name}/result.pkl', 'wb') as file:
+        pickle.dump(performance_list, file)
 
 def build_llama_model():
     if script_args.load_in_8bit and script_args.load_in_4bit:

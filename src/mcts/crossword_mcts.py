@@ -78,6 +78,8 @@ class CrosswordsEnv:
             letters_line = line.split(' ')[:5]
             letters_line += [' '] * (5 - len(letters_line))
             letters.extend(letters_line)
+
+        letters = letters + [' '] * (25 - len(letters))
         
         if len(letters) != 25 or len(self.current_answer) != 25:
             print('error here')
