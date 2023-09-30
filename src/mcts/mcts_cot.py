@@ -127,10 +127,13 @@ def get_possible_actions_gpt(env: CrosswordsEnv, state):
 
 def generate_full(env: CrosswordsEnv, state):
     while True:
-        response = requests.post(API_ENDPOINT, 
-                                json=env.get_input_data(state, num=1, stop_endline=False), 
-                                headers=headers, timeout=30)
-        response_data = response.json()
+        try:
+            response = requests.post(API_ENDPOINT, 
+                                    json=env.get_input_data(state, num=1, stop_endline=False), 
+                                    headers=headers, timeout=30)
+            response_data = response.json()
+        except:
+            continue
         if 'error' in response_data:
             message = response_data['error']['message']
             # print(message)
