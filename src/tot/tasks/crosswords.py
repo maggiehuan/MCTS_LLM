@@ -14,122 +14,122 @@ from src.tot.models import gpt
 
 
 
-class CrosswordsEnv:
-    def __init__(self, file='0505.json'):
-        self.file = os.path.join(DATA_PATH, 'crosswords', file)
-        self.file = json.load(open(self.file))
-        self.n = len(self.file)
-        self.cache = {}
-        self.idx = None
-        self.times = 0
-        self.prompt_status_cache = {}
-        self.rewardF = {'certain': 1, 'high': 0.5, 'medium': 0.2, 'low': 0.1}
+# class CrosswordsEnv:
+#     def __init__(self, file='0505.json'):
+#         self.file = os.path.join(DATA_PATH, 'crosswords', file)
+#         self.file = json.load(open(self.file))
+#         self.n = len(self.file)
+#         self.cache = {}
+#         self.idx = None
+#         self.times = 0
+#         self.prompt_status_cache = {}
+#         self.rewardF = {'certain': 1, 'high': 0.5, 'medium': 0.2, 'low': 0.1}
   
 
 
-    def prompt_wrap(self, observation):    
-        return propose_prompt.format(input=observation) 
+#     def prompt_wrap(self, observation):    
+#         return propose_prompt.format(input=observation) 
 
 
-    def parse_line(self, input_str):
-        # regular expression pattern to match the input string format
-        pattern = r'^([hv][1-5])\. ([a-zA-Z]{5,5}) \((certain|high|medium|low)\).*$'
+#     def parse_line(self, input_str):
+#         # regular expression pattern to match the input string format
+#         pattern = r'^([hv][1-5])\. ([a-zA-Z]{5,5}) \((certain|high|medium|low)\).*$'
 
-        # use regex to extract the parts of the input string
-        match = re.match(pattern, input_str)
+#         # use regex to extract the parts of the input string
+#         match = re.match(pattern, input_str)
 
-        if match:
-            # extract the matched groups
-            parts = [match.group(1), match.group(2), match.group(3)]
-            return parts
-        else:
-            return None
+#         if match:
+#             # extract the matched groups
+#             parts = [match.group(1), match.group(2), match.group(3)]
+#             return parts
+#         else:
+#             return None
 
-    confidence_to_value = {'certain': 1, 'high': 0.5, 'medium': 0.2, 'low': 0.1}  
+#     confidence_to_value = {'certain': 1, 'high': 0.5, 'medium': 0.2, 'low': 0.1}  
 
-    def parse_response(self, response):
-        # split the response into lines
-        lines = response.split('\n')
-        # parse each line
-        parsed_lines = [self.parse_line(line) for line in lines]
-        # filter out the lines that didn't match the format
-        parsed_lines = [(line[0].lower() + '. ' + line[1].lower(), self.rewardF.get(line[2], 0)) for line in parsed_lines if line is not None]
+#     def parse_response(self, response):
+#         # split the response into lines
+#         lines = response.split('\n')
+#         # parse each line
+#         parsed_lines = [self.parse_line(line) for line in lines]
+#         # filter out the lines that didn't match the format
+#         parsed_lines = [(line[0].lower() + '. ' + line[1].lower(), self.rewardF.get(line[2], 0)) for line in parsed_lines if line is not None]
 
-        return parsed_lines if len(parsed_lines) >= 1 else None
+#         return parsed_lines if len(parsed_lines) >= 1 else None
 
 
-    # reward用上一个的分数写
-    def reward(self):
-        obs = self.render()
-        if obs in env.cache: 
-            print('cache hit')
-            return env.cache[obs]
-        print('call gpt')
-        responses = gpt(self.prompt_wrap(obs), model='gpt-4', n=8)
-        candidates_to_scores = {}
-        for response in responses:
-            parsed_response = self.parse_response(response)
-            if parsed_response:
-                for candidate, score in parsed_response:
-                    candidates_to_scores[candidate] = candidates_to_scores.get(candidate, 0) + score
-            # choose candiate with highest score
-        # print(sorted(candidates_to_scores.items(), key=lambda x: x[1], reverse=True))
-        env.cache[obs] = candidates_to_scores
-        return candidates_to_scores
+#     # reward用上一个的分数写
+#     def reward(self):
+#         obs = self.render()
+#         if obs in env.cache: 
+#             print('cache hit')
+#             return env.cache[obs]
+#         print('call gpt')
+#         responses = gpt(self.prompt_wrap(obs), model='gpt-4', n=8)
+#         candidates_to_scores = {}
+#         for response in responses:
+#             parsed_response = self.parse_response(response)
+#             if parsed_response:
+#                 for candidate, score in parsed_response:
+#                     candidates_to_scores[candidate] = candidates_to_scores.get(candidate, 0) + score
+#             # choose candiate with highest score
+#         # print(sorted(candidates_to_scores.items(), key=lambda x: x[1], reverse=True))
+#         env.cache[obs] = candidates_to_scores
+#         return candidates_to_scores
 
-    def computed_reward(self, idx):
-        obs = env.reset(idx)
-        done = False
-        infos = []
-        while not done:
-            responses = gpt(self.prompt_wrap(obs), model='gpt-4', n=5)
-            candidates_to_scores = {}
-            for response in responses:
-                parsed_response = parsed_response(response)
-                if parsed_response:
-                    for candidate, score in parsed_response:
-                        candidates_to_scores[candidate] = candidates_to_scores.get(candidate, 0) + score
-            # choose candiate with highest score
-            print(sorted(candidates_to_scores.items(), key=lambda x: x[1], reverse=True))
+#     def computed_reward(self, idx):
+#         obs = env.reset(idx)
+#         done = False
+#         infos = []
+#         while not done:
+#             responses = gpt(self.prompt_wrap(obs), model='gpt-4', n=5)
+#             candidates_to_scores = {}
+#             for response in responses:
+#                 parsed_response = parsed_response(response)
+#                 if parsed_response:
+#                     for candidate, score in parsed_response:
+#                         candidates_to_scores[candidate] = candidates_to_scores.get(candidate, 0) + score
+#             # choose candiate with highest score
+#             print(sorted(candidates_to_scores.items(), key=lambda x: x[1], reverse=True))
             
-            if len(candidates_to_scores) == 0:
-                break
-            candidates =  sorted(candidates_to_scores, key=candidates_to_scores.get, reverse=True)
-            for candidate in candidates:
-                env_ = copy.deepcopy(env)
-                env_.step(candidate)
-                if not any(_ == 2 for _ in env_.status):
-                    break
-            print(candidate)
-            # candidate = input()
-            obs, r, done, info = env.step(candidate)
-            print(obs)
-            print(env.steps, info)
-            print('-------------------\n\n\n')
-            infos.append(info)
-        return infos
+#             if len(candidates_to_scores) == 0:
+#                 break
+#             candidates =  sorted(candidates_to_scores, key=candidates_to_scores.get, reverse=True)
+#             for candidate in candidates:
+#                 env_ = copy.deepcopy(env)
+#                 env_.step(candidate)
+#                 if not any(_ == 2 for _ in env_.status):
+#                     break
+#             print(candidate)
+#             # candidate = input()
+#             obs, r, done, info = env.step(candidate)
+#             print(obs)
+#             print(env.steps, info)
+#             print('-------------------\n\n\n')
+#             infos.append(info)
+#         return infos
     
 
-    def prompt_status(self):
-        count = {'sure': 0, 'maybe': 0, 'impossible': 0}
-        for ans, data, status in zip(self.ans, self.data, self.status):
-            # if status != 0: continue
-            if ans.count('_') >= 4: continue
-            ans = ' '.join(ans.lower())
-            line = f'{data}: {ans}'
-            prompt = value_prompt.format(input=line)
-            if prompt in self.prompt_status_cache:
-                res = self.prompt_status_cache[prompt]
-            else:
-                res = gpt(prompt)[0]
-                self.prompt_status_cache[prompt] = res
-            # print(line)
-            # print(res)
-            # print()
-            res = res.split('\n')[-1].strip()
-            if res in count: count[res] += 1
-        # print(count)
-        return count
+#     def prompt_status(self):
+#         count = {'sure': 0, 'maybe': 0, 'impossible': 0}
+#         for ans, data, status in zip(self.ans, self.data, self.status):
+#             # if status != 0: continue
+#             if ans.count('_') >= 4: continue
+#             ans = ' '.join(ans.lower())
+#             line = f'{data}: {ans}'
+#             prompt = value_prompt.format(input=line)
+#             if prompt in self.prompt_status_cache:
+#                 res = self.prompt_status_cache[prompt]
+#             else:
+#                 res = gpt(prompt)[0]
+#                 self.prompt_status_cache[prompt] = res
+#             # print(line)
+#             # print(res)
+#             # print()
+#             res = res.split('\n')[-1].strip()
+#             if res in count: count[res] += 1
+#         # print(count)
+#         return count
 
     # def update_value(state, reward, a_best, Q, N_count):
     #     Q[(state, a_best)] = (Q[(state, a_best)] * N_count[(state, a_best)] + reward) / (N_count[(state, a_best)] + 1)
@@ -172,12 +172,12 @@ class CrosswordsEnv:
         #     infos.append(info)
         # return infos
     
-    def answered(self):
-        response = gpt(self.prompt_wrap(env.render()), model='gpt-4', n=1)[0]
-        if response == "answered":
-            return True
-        else:
-            return False
+    # def answered(self):
+    #     response = gpt(self.prompt_wrap(env.render()), model='gpt-4', n=1)[0]
+    #     if response == "answered":
+    #         return True
+    #     else:
+    #         return False
 
     # def rollout(env, s, depth, Q, N_count, C, num_actions):
     #     if depth == 0:
