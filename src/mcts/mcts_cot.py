@@ -119,7 +119,7 @@ def get_possible_actions_gpt(env: CrosswordsEnv, state):
     actions = list(set(actions))
     return actions
     
-    # # TODO 这里需要删掉所有的/r和/n, 然后把相同的句子分类 done
+    # 这里需要删掉所有的/r和/n, 然后把相同的句子分类 done
     # for i in range(6):
     #     content = response_data['choices'][i]['message']['content']
     #     content = content.split('\n')
