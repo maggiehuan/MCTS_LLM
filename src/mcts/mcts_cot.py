@@ -32,7 +32,7 @@ class Hyperparams:
     num_different_action = 5
 
 model = ['gpt-4', 'gpt-4-32k', 'gpt-35-turbo']
-model_choice = "gpt-4-32k"
+model_choice = "gpt-4"
 API_KEY = '01c99186da2344b6a3f0f20748e08c73'
 # API_KEY = os.environ.get("OPENAI_API_KEY")
 API_ENDPOINT = f"https://gcrgpt4aoai5c.openai.azure.com/openai/deployments/{model_choice}/chat/completions?api-version=2023-03-15-preview"
@@ -92,7 +92,7 @@ def get_possible_actions_llama2(model, tokenizer, env: CrosswordsEnv, state):
     actions = [output[length_prompts:].strip() for output in outputs]
     return actions
 
-
+max_wait_gpt4_time = 40
 def get_possible_actions_gpt(env: CrosswordsEnv, state):
     while True:
         try:
@@ -105,8 +105,9 @@ def get_possible_actions_gpt(env: CrosswordsEnv, state):
         if 'error' in response_data:
             message = response_data['error']['message']
             # print(message)
-            sleep_time = re.findall(r'Please retry after (\w+) second', message)[0]
-            time.sleep(int(sleep_time) + 1.0)
+            sleep_time = int(re.findall(r'Please retry after (\w+) second', message)[0])
+            sleep_time = min(sleep_time, max_wait_gpt4_time)
+            time.sleep(sleep_time + 1.0)
         else:
             break
 
@@ -142,8 +143,9 @@ def generate_full(env: CrosswordsEnv, state):
         if 'error' in response_data:
             message = response_data['error']['message']
             # print(message)
-            sleep_time = re.findall(r'Please retry after (\w+) second', message)[0]
-            time.sleep(int(sleep_time) + 1.0)
+            sleep_time = int(re.findall(r'Please retry after (\w+) second', message)[0])
+            sleep_time = min(sleep_time, max_wait_gpt4_time)
+            time.sleep(sleep_time + 1.0)
         else:
             break
     
