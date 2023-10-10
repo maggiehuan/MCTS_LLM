@@ -26,7 +26,7 @@ import time
 
 class Hyperparams:
     depth_limit = 20
-    rollout_num = 20  # Number of rollouts
+    rollout_num = 10  # Number of rollouts
     data_num_per_training = 10
     train_iterations = 20
     num_different_action = 5
@@ -172,12 +172,15 @@ def update_value(Q, N, history_state_list, history_action_list, reward):
         Q[state][action] = (Q[state][action] * N[state][action] + reward) / (N[state][action] + 1)
         N[state][action] += 1
 
-def mcts_construction(model, tokenizer, env: CrosswordsEnv, initial_state: str, iteration):
+def mcts_construction(model, tokenizer, env: CrosswordsEnv, initial_state: str, iteration, run_name):
     # Construct a MCTS at state = initial_state
         
     Q, N, action_map = {}, {}, {}
     
-    gpt_generation_prob = (1 - iteration / Hyperparams.train_iterations) * 0.9 + 0.1
+    if run_name == 'test':
+        gpt_generation_prob = 0.0
+    else:
+        gpt_generation_prob = (1 - iteration / Hyperparams.train_iterations) * 0.9 + 0.1
 
     for rollout_idx in range(Hyperparams.rollout_num):
         # If there is only one possible action at current state, then stop searching. 
@@ -234,7 +237,7 @@ def mcts_construction(model, tokenizer, env: CrosswordsEnv, initial_state: str, 
                     generation = generate_full(env, next_state)
                     final_state = next_state + generation + '\n'
                 reward = env.reward(final_state)
-                print(f'get an answer with reward {reward}')
+                # print(f'get an answer with reward {reward}')
                 
                 # Update value
                 update_value(Q, N, history_state_list + [current_state], 
@@ -251,12 +254,12 @@ def mcts_construction(model, tokenizer, env: CrosswordsEnv, initial_state: str, 
         current_state = current_state + best_action + '\n'
     return best_action_sequence
 
-def rollout_once(model, tokenizer, env: CrosswordsEnv, iteration):
+def rollout_once(model, tokenizer, env: CrosswordsEnv, iteration, run_index, run_name='train'):
     current_state = ''
 
     start = time.time()
     for depth in range(Hyperparams.depth_limit):
-        best_action = mcts_construction(model, tokenizer, env, current_state, iteration)
+        best_action = mcts_construction(model, tokenizer, env, current_state, iteration, run_name='train')
         print(f'In rollout, action """{best_action}""" is generated')
         current_state = current_state + best_action
         if env.answered(current_state):
@@ -265,12 +268,19 @@ def rollout_once(model, tokenizer, env: CrosswordsEnv, iteration):
     print('generation time:', time.time() - start)
     print('full generation:', current_state)
     print('final reward:', env.reward(current_state))
+
+    whole_prompt = env.get_whole_prompt()
+    text_file_path = f'saved_generation/{env.env_name}/{run_name}/iteration-{iteration}'
+    os.makedirs(text_file_path, exist_ok=True)
+
+    with open(f'{text_file_path}/data-{run_index}.txt', 'w') as file:
+        file.write(whole_prompt + current_state)
     
     return current_state
 
 def finetune_llama2(model, iteration, env_name):
     data_files = [
-        f'saved_generation/{env_name}/iteration-{iteration}/data-{dataset_idx}.txt' for dataset_idx in range(Hyperparams.data_num_per_training)
+        f'saved_generation/{env_name}/train/iteration-{iteration}/data-{dataset_idx}.txt' for dataset_idx in range(Hyperparams.data_num_per_training)
     ]
     dataset = load_dataset('text', data_files=data_files, sample_by="document", split='train')
 
@@ -312,13 +322,13 @@ def finetune_llama2(model, iteration, env_name):
 
     trainer.train()
 
-def evaluate_model(model, tokenizer, validation_env: CrosswordsEnv):
+def evaluate_model(model, iteration, tokenizer, validation_env: CrosswordsEnv):
     reward_tasks = []
     validation_max_len = 10
     validation_length = min(validation_max_len, len(validation_env))
     for task_id in range(validation_length):
         validation_env.reset(task_id)
-        generation = rollout_once(model, tokenizer, validation_env, iteration=Hyperparams.train_iterations)
+        generation = rollout_once(model, tokenizer, validation_env, iteration, task_id, 'test')
         reward = validation_env.reward(generation)
         reward_tasks.append(reward)
     return reward_tasks
@@ -332,22 +342,16 @@ def cot_mcts(model, tokenizer, env: CrosswordsEnv, validation_env: CrosswordsEnv
     performance_list = []
     
     for iteration in range(Hyperparams.train_iterations):
-        text_file_path = f'saved_generation/{env.env_name}/iteration-{iteration}'
-        os.makedirs(text_file_path, exist_ok=True)
         for dataset_idx in range(Hyperparams.data_num_per_training):
             # Reset environment to random task
             env.reset_random()
-            whole_prompt = env.get_whole_prompt()
-            generation = rollout_once(model, tokenizer, env, iteration)
-        
-            with open(f'{text_file_path}/data-{dataset_idx}.txt', 'w') as file:
-                file.write(whole_prompt + generation)
+            generation = rollout_once(model, tokenizer, env, iteration, dataset_idx, 'train')
                 
         # Finetune Llama2 with training data
         finetune_llama2(model, iteration, env.env_name)
 
         # Evaluate finetuned Llama2 on validation tasks
-        performance = evaluate_model(model, tokenizer, validation_env)
+        performance = evaluate_model(model, iteration, tokenizer, validation_env)
         performance_list.append(performance)
         
         print(f'Performance in iteration {iteration}:', performance)
